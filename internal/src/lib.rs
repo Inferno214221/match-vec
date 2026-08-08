@@ -2,7 +2,7 @@
 
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
-use syn::{Arm, Attribute, Expr, ExprMatch, Ident, Pat, PatIdent, PatLit, PatPath, PatRest, PatSlice, PatWild, Token, punctuated::Punctuated, token::{Brace, Bracket}};
+use syn::{Arm, Attribute, Expr, ExprMatch, Ident, Pat, PatConst, PatIdent, PatLit, PatPath, PatRange, PatReference, PatRest, PatSlice, PatStruct, PatTuple, PatTupleStruct, PatWild, Token, punctuated::Punctuated, token::{Brace, Bracket}};
 
 pub struct MatchArgs {
     pub attrs: Vec<Attribute>,
@@ -89,13 +89,18 @@ impl TryFrom<Arm> for VecArm {
 // }
 
 pub enum VecPat {
-    // Const(PatConst),
+    Const(PatConst),
     // Guard(PatGuard),
     Ident(VecPatIdent),
     Lit(PatLit),
     // Or(PatOr),
     // Paren(PatParen),
     Path(PatPath),
+    Range(PatRange),
+    Reference(PatReference),
+    Struct(PatStruct),
+    Tuple(PatTuple),
+    TupleStruct(PatTupleStruct),
     Rest(PatRest),
     Slice(VecPatSlice),
     Wild(PatWild),
@@ -144,12 +149,18 @@ impl TryFrom<Pat> for VecPat {
 
     fn try_from(value: Pat) -> Result<Self, Self::Error> {
         Ok(match value {
-            Pat::Ident(ident) => VecPat::Ident(VecPatIdent::try_from(ident)?),
-            Pat::Lit(lit)     => VecPat::Lit(lit),
-            Pat::Path(path)   => VecPat::Path(path),
-            Pat::Rest(rest)   => VecPat::Rest(rest),
-            Pat::Slice(slice) => VecPat::Slice(VecPatSlice::try_from(slice)?),
-            Pat::Wild(wild)   => VecPat::Wild(wild),
+            Pat::Const(const_)    => VecPat::Const(const_),
+            Pat::Ident(ident)     => VecPat::Ident(VecPatIdent::try_from(ident)?),
+            Pat::Lit(lit)         => VecPat::Lit(lit),
+            Pat::Path(path)       => VecPat::Path(path),
+            Pat::Range(range)     => VecPat::Range(range),
+            Pat::Reference(ref_)  => VecPat::Reference(ref_),
+            Pat::Rest(rest)       => VecPat::Rest(rest),
+            Pat::Slice(slice)     => VecPat::Slice(VecPatSlice::try_from(slice)?),
+            Pat::Struct(struct_)  => VecPat::Struct(struct_),
+            Pat::Tuple(tup)       => VecPat::Tuple(tup),
+            Pat::TupleStruct(tup) => VecPat::TupleStruct(tup),
+            Pat::Wild(wild)       => VecPat::Wild(wild),
             _ => Err(())?
         })
     }
@@ -158,12 +169,18 @@ impl TryFrom<Pat> for VecPat {
 impl ToTokens for VecPat {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            VecPat::Ident(ident) => ident.to_tokens(tokens),
-            VecPat::Lit(lit)     => lit.to_tokens(tokens),
-            VecPat::Path(path)   => path.to_tokens(tokens),
-            VecPat::Rest(est)    => est.to_tokens(tokens),
-            VecPat::Slice(slice) => slice.to_tokens(tokens),
-            VecPat::Wild(wild)   => wild.to_tokens(tokens),
+            VecPat::Const(const_)    => const_.to_tokens(tokens),
+            VecPat::Ident(ident)     => ident.to_tokens(tokens),
+            VecPat::Lit(lit)         => lit.to_tokens(tokens),
+            VecPat::Path(path)       => path.to_tokens(tokens),
+            VecPat::Range(range)     => range.to_tokens(tokens),
+            VecPat::Reference(ref_)  => ref_.to_tokens(tokens),
+            VecPat::Rest(est)        => est.to_tokens(tokens),
+            VecPat::Slice(slice)     => slice.to_tokens(tokens),
+            VecPat::Struct(struct_)  => struct_.to_tokens(tokens),
+            VecPat::Tuple(tup)       => tup.to_tokens(tokens),
+            VecPat::TupleStruct(tup) => tup.to_tokens(tokens),
+            VecPat::Wild(wild)       => wild.to_tokens(tokens),
         }
     }
 }
@@ -245,12 +262,18 @@ pub trait ImplBody {
 impl ImplBody for VecPat {
     fn impl_body(&self, vec: &Expr, body: &Expr) -> TokenStream {
         match self {
-            VecPat::Ident(ident) => ident.impl_body(vec, body),
-            VecPat::Lit(lit)     => lit.impl_body(vec, body),
-            VecPat::Path(path)   => path.impl_body(vec, body),
-            VecPat::Rest(est)    => est.impl_body(vec, body),
-            VecPat::Slice(slice) => slice.impl_body(vec, body),
-            VecPat::Wild(wild)   => wild.impl_body(vec, body),
+            VecPat::Const(const_)    => const_.impl_body(vec, body),
+            VecPat::Ident(ident)     => ident.impl_body(vec, body),
+            VecPat::Lit(lit)         => lit.impl_body(vec, body),
+            VecPat::Path(path)       => path.impl_body(vec, body),
+            VecPat::Range(range)     => range.impl_body(vec, body),
+            VecPat::Reference(ref_)  => ref_.impl_body(vec, body),
+            VecPat::Rest(est)        => est.impl_body(vec, body),
+            VecPat::Slice(slice)     => slice.impl_body(vec, body),
+            VecPat::Struct(struct_)  => struct_.impl_body(vec, body),
+            VecPat::Tuple(tup)       => tup.impl_body(vec, body),
+            VecPat::TupleStruct(tup) => tup.impl_body(vec, body),
+            VecPat::Wild(wild)       => wild.impl_body(vec, body),
         }
     }
 }
@@ -262,25 +285,6 @@ impl ImplBody for VecPatIdent {
             let #ident = #vec;
             #body
         }
-    }
-}
-
-impl ImplBody for PatLit {
-    fn impl_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
-        // If this is actually reached, its at top level. How should it work?
-        quote!(#body)
-    }
-}
-
-impl ImplBody for PatPath {
-    fn impl_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
-        quote!(#body)
-    }
-}
-
-impl ImplBody for PatRest {
-    fn impl_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
-        quote!(#body)
     }
 }
 
@@ -391,10 +395,33 @@ impl ImplBody for VecPatSlice {
     }
 }
 
-impl ImplBody for PatWild {
-    fn impl_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
-        quote!(#body)
+macro_rules! impl_body_default {
+    ($T:ty) => {
+        impl ImplBody for $T {
+            fn impl_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
+                quote!(#body)
+            }
+        }
+    };
+    ($T:ty, $($N:ty),+ $(,)?) => {
+        impl_body_default!($T);
+        impl_body_default!($($N),+);
     }
+}
+
+impl_body_default! {
+    // If this is actually reached, its at top level. How should it work?
+    PatLit,
+
+    PatPath,
+    PatRest,
+    PatWild,
+    PatConst,
+    PatRange,
+    PatReference,
+    PatStruct,
+    PatTuple,
+    PatTupleStruct,
 }
 
 pub fn make_match(args: ExprMatch) -> TokenStream {

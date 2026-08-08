@@ -38,7 +38,7 @@ fn main() {
         [a, _, c] => {
             println!("{a:?}, _, {c:?}")
         },
-        [mine::ZERO, b, start @ ..] => {
+        [NC(0), b, start @ ..] => {
             println!("0, {b:?}, {start:?}")
         },
         [start @ .., a] => {
