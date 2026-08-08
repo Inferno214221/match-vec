@@ -1,5 +1,3 @@
-use std::mem::MaybeUninit;
-
 use match_vec_macro::match_vec;
 
 fn take_0() {
@@ -22,11 +20,16 @@ fn take_2_and_vec(a: usize, b: usize, vec: Vec<usize>) {
     println!("2 args and vec: {a}, {b}, {vec:?}")
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct NC(pub usize);
 
 fn main() {
-    let mut vec = vec![NC(1), NC(2), NC(3), NC(4)];
+    let mut vec = vec![NC(0), NC(2), NC(3), NC(4)];
+
+    mod mine {
+        use super::NC;
+        pub const ZERO: NC = NC(0);
+    }
 
     match_vec!(match vec {
         [] => {
@@ -34,9 +37,9 @@ fn main() {
         },
         [a, b, c] => {
             println!("{a:?}, {b:?}, {c:?}")
-        }
-        [start @ .., a] => {
-            println!("{start:?}, {a:?}")
+        },
+        [mine::ZERO, b, start @ ..] => {
+            println!("0, {b:?}, {start:?}")
         },
         [start @ .., a] => {
             println!("{start:?}, {a:?}")

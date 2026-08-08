@@ -1,7 +1,7 @@
 #![feature(iterator_try_collect)]
 
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote, quote_spanned};
+use quote::{ToTokens, quote};
 use syn::{Arm, Attribute, Expr, ExprMatch, Ident, Pat, PatIdent, PatLit, PatPath, PatRest, PatSlice, PatWild, Token, punctuated::Punctuated, token::{Brace, Bracket}};
 
 pub struct MatchArgs {
@@ -145,6 +145,7 @@ impl TryFrom<Pat> for VecPat {
     fn try_from(value: Pat) -> Result<Self, Self::Error> {
         Ok(match value {
             Pat::Ident(ident) => VecPat::Ident(VecPatIdent::try_from(ident)?),
+            Pat::Lit(lit)     => VecPat::Lit(lit),
             Pat::Path(path)   => VecPat::Path(path),
             Pat::Rest(rest)   => VecPat::Rest(rest),
             Pat::Slice(slice) => VecPat::Slice(VecPatSlice::try_from(slice)?),
@@ -332,7 +333,7 @@ impl ImplBody for VecPatSlice {
                         Some(ident) => quote! {
                             let #ident = unsafe { drain.next().unwrap_unchecked() };
                         },
-                        None        => quote! {
+                        None => quote! {
                             let _ = drain.next();
                         },
                     }
@@ -358,7 +359,7 @@ impl ImplBody for VecPatSlice {
                                 #mem_replace(&mut spare[#i], #MaybeUninit::uninit()).assume_init()
                             };
                         },
-                        None        => quote! {
+                        None => quote! {
                             let _ = unsafe { spare[#i].assume_init() };
                         },
                     }
