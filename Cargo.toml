@@ -1,0 +1,14 @@
+[workspace]
+members = ["internal", "macro"]
+
+[package]
+name = "match-vec"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+match-vec-internal = { path = "internal", features = [] }
+match-vec-macro = { path = "macro"}
+
+[features]
+default = []
