@@ -1,7 +1,7 @@
 #![feature(iterator_try_collect)]
 
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote};
+use quote::{ToTokens, quote, quote_spanned};
 use syn::{Arm, Attribute, Expr, ExprMatch, Ident, Pat, PatIdent, PatLit, PatPath, PatRest, PatSlice, PatWild, Token, punctuated::Punctuated, token::{Brace, Bracket}};
 
 pub struct MatchArgs {
@@ -28,9 +28,10 @@ impl TryFrom<ExprMatch> for MatchArgs {
 impl ToTokens for MatchArgs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let MatchArgs { attrs, expr, brace_token: _, arms } = self;
+        let arms = arms.iter().map(|arm| arm.to_tokens_ext(expr));
         tokens.extend(quote! {
             #(#attrs)*
-            match #expr {
+            match &#expr[..] {
                 #(#arms)*
             }
         });
@@ -43,6 +44,20 @@ pub struct VecArm {
     pub fat_arrow_token: Token![=>],
     pub body: Box<Expr>,
     pub comma: Option<Token![,]>,
+}
+
+impl VecArm {
+    pub fn to_tokens_ext(&self, vec: &Expr) -> TokenStream {
+        let VecArm { attrs, pat, fat_arrow_token, body, comma } = self;
+        let body = pat.impl_body(vec, body);
+        quote! {
+            #(#attrs)*
+            #pat #fat_arrow_token {
+                // TODO: implement the body here
+                #body
+            } #comma
+        }
+    }
 }
 
 impl TryFrom<Arm> for VecArm {
@@ -59,19 +74,19 @@ impl TryFrom<Arm> for VecArm {
     }
 }
 
-impl ToTokens for VecArm {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let VecArm { attrs, pat, fat_arrow_token, body, comma } = self;
-        // let body = pat.impl_body(todo!(), body);
-        tokens.extend(quote! {
-            #(#attrs)*
-            #pat #fat_arrow_token {
-                // TODO: implement the body here
-                #body
-            } #comma
-        });
-    }
-}
+// impl ToTokens for VecArm {
+//     fn to_tokens(&self, tokens: &mut TokenStream) {
+//         let VecArm { attrs, pat, fat_arrow_token, body, comma } = self;
+//         // let body = pat.impl_body(todo!(), body);
+//         tokens.extend(quote! {
+//             #(#attrs)*
+//             #pat #fat_arrow_token {
+//                 // TODO: implement the body here
+//                 #body
+//             } #comma
+//         });
+//     }
+// }
 
 pub enum VecPat {
     // Const(PatConst),
@@ -86,16 +101,54 @@ pub enum VecPat {
     Wild(PatWild),
 }
 
+pub enum Catchall<'a> {
+    Rest(&'a PatRest),
+    Ident(&'a Ident),
+}
+
+impl VecPat {
+    fn as_catchall(&self) -> Option<Catchall<'_>> {
+        match self {
+            VecPat::Ident(
+                VecPatIdent { ident, subpat: Some((_, subpat)), .. }
+            ) => if subpat.is_catchall() {
+                Some(Catchall::Ident(ident))
+            } else {
+                None
+            },
+            VecPat::Rest(rest) => Some(Catchall::Rest(rest)),
+            _ => None,
+        }
+    }
+
+    fn is_catchall(&self) -> bool {
+        match self {
+            VecPat::Ident(
+                VecPatIdent { subpat: Some((_, subpat)), .. }
+            ) => subpat.is_catchall(),
+            VecPat::Rest(_) => true,
+            _ => false,
+        }
+    }
+
+    fn ident(&self) -> Option<&Ident> {
+        match self {
+            VecPat::Ident(ident) => Some(&ident.ident),
+            _ => None,
+        }
+    }
+}
+
 impl TryFrom<Pat> for VecPat {
     type Error = ();
 
     fn try_from(value: Pat) -> Result<Self, Self::Error> {
         Ok(match value {
             Pat::Ident(ident) => VecPat::Ident(VecPatIdent::try_from(ident)?),
-            Pat::Path(path) => VecPat::Path(path),
-            Pat::Rest(rest) => VecPat::Rest(rest),
+            Pat::Path(path)   => VecPat::Path(path),
+            Pat::Rest(rest)   => VecPat::Rest(rest),
             Pat::Slice(slice) => VecPat::Slice(VecPatSlice::try_from(slice)?),
-            Pat::Wild(wild) => VecPat::Wild(wild),
+            Pat::Wild(wild)   => VecPat::Wild(wild),
             _ => Err(())?
         })
     }
@@ -105,11 +158,11 @@ impl ToTokens for VecPat {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             VecPat::Ident(ident) => ident.to_tokens(tokens),
-            VecPat::Lit(lit) => lit.to_tokens(tokens),
-            VecPat::Path(path) => path.to_tokens(tokens),
-            VecPat::Rest(est) => est.to_tokens(tokens),
+            VecPat::Lit(lit)     => lit.to_tokens(tokens),
+            VecPat::Path(path)   => path.to_tokens(tokens),
+            VecPat::Rest(est)    => est.to_tokens(tokens),
             VecPat::Slice(slice) => slice.to_tokens(tokens),
-            VecPat::Wild(wild) => wild.to_tokens(tokens),
+            VecPat::Wild(wild)   => wild.to_tokens(tokens),
         }
     }
 }
@@ -190,7 +243,158 @@ pub trait ImplBody {
 
 impl ImplBody for VecPat {
     fn impl_body(&self, vec: &Expr, body: &Expr) -> TokenStream {
-        todo!()
+        match self {
+            VecPat::Ident(ident) => ident.impl_body(vec, body),
+            VecPat::Lit(lit)     => lit.impl_body(vec, body),
+            VecPat::Path(path)   => path.impl_body(vec, body),
+            VecPat::Rest(est)    => est.impl_body(vec, body),
+            VecPat::Slice(slice) => slice.impl_body(vec, body),
+            VecPat::Wild(wild)   => wild.impl_body(vec, body),
+        }
+    }
+}
+
+impl ImplBody for VecPatIdent {
+    fn impl_body(&self, vec: &Expr, body: &Expr) -> TokenStream {
+        let VecPatIdent { ident, .. } = self;
+        quote! {
+            let #ident = #vec;
+            #body
+        }
+    }
+}
+
+impl ImplBody for PatLit {
+    fn impl_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
+        // If this is actually reached, its at top level. How should it work?
+        quote!(#body)
+    }
+}
+
+impl ImplBody for PatPath {
+    fn impl_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
+        quote!(#body)
+    }
+}
+
+impl ImplBody for PatRest {
+    fn impl_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
+        quote!(#body)
+    }
+}
+
+impl ImplBody for VecPatSlice {
+    fn impl_body(&self, vec: &Expr, body: &Expr) -> TokenStream {
+        let mut elems = self.elems.iter().peekable();
+        let mut first = Vec::new();
+
+        while let Some(elem) = elems.peek() && !elem.is_catchall() {
+            first.push(*elem);
+            elems.next();
+        }
+
+        let mut catchall = None;
+        let before;
+        let mut after = Vec::new();
+
+        if let Some(elem) = elems.peek() {
+            catchall = Some(elem.as_catchall().unwrap_or_else(|| panic!("{:?}", quote!(#elem))));
+            elems.next();
+
+            before = first;
+            for elem in elems {
+                assert!(!elem.is_catchall(), "pattern may only contain one catchall element");
+                after.push(elem);
+            }
+        } else {
+            before = Vec::new();
+            after = first;
+        }
+
+        let mem_drop = quote!(::core::mem::drop);
+        let mem_replace = quote!(::core::mem::replace);
+        let MaybeUninit = quote!(::core::mem::MaybeUninit);
+
+        let before_len = before.len();
+
+        let len_block = match catchall {
+            Some(_) => quote!(let rem_len = slice.len();),
+            None    => quote!(),
+        };
+
+        let before_block = if before.is_empty() {
+            quote!()
+        } else {
+            let mut bindings = TokenStream::default();
+            for elem in before {
+                bindings.extend(
+                    match elem.ident() {
+                        Some(ident) => quote! {
+                            let #ident = unsafe { drain.next().unwrap_unchecked() };
+                        },
+                        None        => quote! {
+                            let _ = drain.next();
+                        },
+                    }
+                );
+            }
+
+            quote! {
+                let mut drain = #vec.drain(..#before_len);
+                #bindings
+                #mem_drop(drain);
+            }
+        };
+
+        let after_block = if after.is_empty() {
+            quote!()
+        } else {
+            let mut bindings = TokenStream::default();
+            for (i, elem) in after.iter().enumerate() {
+                bindings.extend(
+                    match elem.ident() {
+                        Some(ident) => quote! {
+                            let #ident = unsafe {
+                                #mem_replace(&mut spare[#i], #MaybeUninit::uninit()).assume_init()
+                            };
+                        },
+                        None        => quote! {
+                            let _ = unsafe { spare[#i].assume_init() };
+                        },
+                    }
+                );
+            }
+
+            let new_len_expr = match catchall {
+                Some(_) => quote!(rem_len - #before_len),
+                None => quote!(0),
+            };
+
+            quote! {
+                unsafe { vec.set_len(#new_len_expr) };
+                let spare = vec.spare_capacity_mut();
+                #bindings
+            }
+        };
+
+        let bind_block = match catchall {
+            Some(Catchall::Ident(ident)) => quote!(let #ident = #vec;),
+            _ => quote!(),
+        };
+
+        quote! {
+            #len_block
+            #before_block
+            #after_block
+            #bind_block
+            #body
+        }
+    }
+}
+
+impl ImplBody for PatWild {
+    fn impl_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
+        quote!(#body)
     }
 }
 
