@@ -313,8 +313,6 @@ impl ImplBody for VecPatSlice {
         }
 
         let mem_drop = quote!(::core::mem::drop);
-        let mem_replace = quote!(::core::mem::replace);
-        let MaybeUninit = quote!(::core::mem::MaybeUninit);
 
         let before_len = before.len();
 
@@ -356,11 +354,11 @@ impl ImplBody for VecPatSlice {
                     match elem.ident() {
                         Some(ident) => quote! {
                             let #ident = unsafe {
-                                #mem_replace(&mut spare[#i], #MaybeUninit::uninit()).assume_init()
+                                spare[#i].assume_init_read()
                             };
                         },
                         None => quote! {
-                            let _ = unsafe { spare[#i].assume_init() };
+                            unsafe { spare[#i].assume_init_drop() };
                         },
                     }
                 );

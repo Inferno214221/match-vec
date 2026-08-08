@@ -35,8 +35,8 @@ fn main() {
         [] => {
             println!("zero element slice match")
         },
-        [a, b, c] => {
-            println!("{a:?}, {b:?}, {c:?}")
+        [a, _, c] => {
+            println!("{a:?}, _, {c:?}")
         },
         [mine::ZERO, b, start @ ..] => {
             println!("0, {b:?}, {start:?}")
