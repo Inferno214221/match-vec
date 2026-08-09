@@ -1,18 +1,34 @@
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
+use syn::Expr;
 
-use crate::{MatchArgs, VecPat, VecPatIdent, VecPatSlice};
+use crate::{GenerateMatchBody, MatchArgs, VecArm, VecPat, VecPatIdent, VecPatSlice};
 
 impl ToTokens for MatchArgs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let MatchArgs { attrs, expr, brace_token: _, arms } = self;
         let arms = arms.iter().map(|arm| arm.to_tokens_ext(expr));
         tokens.extend(quote! {
+            let mut __vec = #expr;
             #(#attrs)*
-            match &#expr[..] {
+            match &__vec[..] {
                 #(#arms)*
             }
         });
+    }
+}
+
+impl VecArm {
+    pub fn to_tokens_ext(&self, vec: &Expr) -> TokenStream {
+        let VecArm { attrs, pat, fat_arrow_token, body, comma } = self;
+        let body = pat.gen_match_body(vec, body);
+        quote! {
+            #(#attrs)*
+            #pat #fat_arrow_token {
+                // TODO: implement the body here
+                #body
+            } #comma
+        }
     }
 }
 
@@ -39,7 +55,7 @@ impl ToTokens for VecPatIdent {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let VecPatIdent { attrs, by_ref: _, mutability: _, ident: _, subpat } = self;
         let inner = if let Some((at, boxed)) = subpat {
-            quote!(slice #at #boxed)
+            quote!(__slice #at #boxed)
         } else {
             quote!(_)
         };

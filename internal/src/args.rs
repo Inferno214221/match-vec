@@ -1,8 +1,4 @@
-use proc_macro2::TokenStream;
-use quote::quote;
 use syn::{Arm, Attribute, Expr, ExprMatch, Ident, Pat, PatConst, PatIdent, PatLit, PatPath, PatRange, PatReference, PatRest, PatSlice, PatStruct, PatTuple, PatTupleStruct, PatWild, Token, punctuated::Punctuated, token::{Brace, Bracket}};
-
-use crate::GenerateMatchBody;
 
 pub struct MatchArgs {
     pub attrs: Vec<Attribute>,
@@ -31,20 +27,6 @@ pub struct VecArm {
     pub fat_arrow_token: Token![=>],
     pub body: Box<Expr>,
     pub comma: Option<Token![,]>,
-}
-
-impl VecArm {
-    pub fn to_tokens_ext(&self, vec: &Expr) -> TokenStream {
-        let VecArm { attrs, pat, fat_arrow_token, body, comma } = self;
-        let body = pat.gen_match_body(vec, body);
-        quote! {
-            #(#attrs)*
-            #pat #fat_arrow_token {
-                // TODO: implement the body here
-                #body
-            } #comma
-        }
-    }
 }
 
 impl TryFrom<Arm> for VecArm {

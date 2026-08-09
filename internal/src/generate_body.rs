@@ -76,7 +76,7 @@ impl GenerateMatchBody for VecPatIdent {
 }
 
 impl GenerateMatchBody for VecPatSlice {
-    fn gen_match_body(&self, vec: &Expr, body: &Expr) -> TokenStream {
+    fn gen_match_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
         let mut elems = self.elems.iter().peekable();
         let mut first = Vec::new();
 
@@ -108,7 +108,7 @@ impl GenerateMatchBody for VecPatSlice {
         let before_len = before.len();
 
         let len_block = match catchall {
-            Some(_) => quote!(let rem_len = slice.len();),
+            Some(_) => quote!(let __rem_len = __slice.len();),
             None    => quote!(),
         };
 
@@ -120,19 +120,19 @@ impl GenerateMatchBody for VecPatSlice {
                 bindings.extend(
                     match elem.ident() {
                         Some(ident) => quote! {
-                            let #ident = unsafe { drain.next().unwrap_unchecked() };
+                            let #ident = unsafe { __drain.next().unwrap_unchecked() };
                         },
                         None => quote! {
-                            let _ = drain.next();
+                            let _ = __drain.next();
                         },
                     }
                 );
             }
 
             quote! {
-                let mut drain = #vec.drain(..#before_len);
+                let mut __drain = __vec.drain(..#before_len);
                 #bindings
-                #mem_drop(drain);
+                #mem_drop(__drain);
             }
         };
 
@@ -145,30 +145,30 @@ impl GenerateMatchBody for VecPatSlice {
                     match elem.ident() {
                         Some(ident) => quote! {
                             let #ident = unsafe {
-                                spare[#i].assume_init_read()
+                                __spare[#i].assume_init_read()
                             };
                         },
                         None => quote! {
-                            unsafe { spare[#i].assume_init_drop() };
+                            unsafe { __spare[#i].assume_init_drop() };
                         },
                     }
                 );
             }
 
             let new_len_expr = match catchall {
-                Some(_) => quote!(rem_len - #before_len),
+                Some(_) => quote!(__rem_len - #before_len),
                 None => quote!(0),
             };
 
             quote! {
-                unsafe { vec.set_len(#new_len_expr) };
-                let spare = vec.spare_capacity_mut();
+                unsafe { __vec.set_len(#new_len_expr) };
+                let __spare = __vec.spare_capacity_mut();
                 #bindings
             }
         };
 
         let bind_block = match catchall {
-            Some(Catchall::Ident(ident)) => quote!(let #ident = #vec;),
+            Some(Catchall::Ident(ident)) => quote!(let #ident = __vec;),
             _ => quote!(),
         };
 
