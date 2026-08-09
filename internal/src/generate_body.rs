@@ -43,40 +43,40 @@ impl VecPat {
 }
 
 pub trait GenerateMatchBody {
-    fn gen_match_body(&self, vec: &Expr, body: &Expr) -> TokenStream;
+    fn gen_match_body(&self, body: &Expr) -> TokenStream;
 }
 
 impl GenerateMatchBody for VecPat {
-    fn gen_match_body(&self, vec: &Expr, body: &Expr) -> TokenStream {
+    fn gen_match_body(&self, body: &Expr) -> TokenStream {
         match self {
-            VecPat::Const(const_)    => const_.gen_match_body(vec, body),
-            VecPat::Ident(ident)     => ident.gen_match_body(vec, body),
-            VecPat::Lit(lit)         => lit.gen_match_body(vec, body),
-            VecPat::Path(path)       => path.gen_match_body(vec, body),
-            VecPat::Range(range)     => range.gen_match_body(vec, body),
-            VecPat::Reference(ref_)  => ref_.gen_match_body(vec, body),
-            VecPat::Rest(est)        => est.gen_match_body(vec, body),
-            VecPat::Slice(slice)     => slice.gen_match_body(vec, body),
-            VecPat::Struct(struct_)  => struct_.gen_match_body(vec, body),
-            VecPat::Tuple(tup)       => tup.gen_match_body(vec, body),
-            VecPat::TupleStruct(tup) => tup.gen_match_body(vec, body),
-            VecPat::Wild(wild)       => wild.gen_match_body(vec, body),
+            VecPat::Const(const_)    => const_.gen_match_body(body),
+            VecPat::Ident(ident)     => ident.gen_match_body(body),
+            VecPat::Lit(lit)         => lit.gen_match_body(body),
+            VecPat::Path(path)       => path.gen_match_body(body),
+            VecPat::Range(range)     => range.gen_match_body(body),
+            VecPat::Reference(ref_)  => ref_.gen_match_body(body),
+            VecPat::Rest(est)        => est.gen_match_body(body),
+            VecPat::Slice(slice)     => slice.gen_match_body(body),
+            VecPat::Struct(struct_)  => struct_.gen_match_body(body),
+            VecPat::Tuple(tup)       => tup.gen_match_body(body),
+            VecPat::TupleStruct(tup) => tup.gen_match_body(body),
+            VecPat::Wild(wild)       => wild.gen_match_body(body),
         }
     }
 }
 
 impl GenerateMatchBody for VecPatIdent {
-    fn gen_match_body(&self, vec: &Expr, body: &Expr) -> TokenStream {
+    fn gen_match_body(&self, body: &Expr) -> TokenStream {
         let VecPatIdent { ident, .. } = self;
         quote! {
-            let #ident = #vec;
+            let #ident = __vec;
             #body
         }
     }
 }
 
 impl GenerateMatchBody for VecPatSlice {
-    fn gen_match_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
+    fn gen_match_body(&self, body: &Expr) -> TokenStream {
         let mut elems = self.elems.iter().peekable();
         let mut first = Vec::new();
 
@@ -185,7 +185,7 @@ impl GenerateMatchBody for VecPatSlice {
 macro_rules! gen_match_body_default {
     ($T:ty) => {
         impl GenerateMatchBody for $T {
-            fn gen_match_body(&self, _vec: &Expr, body: &Expr) -> TokenStream {
+            fn gen_match_body(&self, body: &Expr) -> TokenStream {
                 quote!(#body)
             }
         }
