@@ -5,11 +5,14 @@ use crate::{GenerateMatchBody, MatchArgs, VecArm, VecPat, VecPatIdent, VecPatSli
 
 impl ToTokens for MatchArgs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        #[allow(non_snake_case)]
+        let Vec = quote!(::std::vec::Vec);
+
         let MatchArgs { attrs, expr, brace_token: _, arms } = self;
         tokens.extend(quote! {
-            let mut __vec = #expr;
+            let mut __match_vec_vec: #Vec<_> = #expr;
             #(#attrs)*
-            match &__vec[..] {
+            match &__match_vec_vec[..] {
                 #(#arms)*
             }
         });
@@ -53,7 +56,7 @@ impl ToTokens for VecPatIdent {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let VecPatIdent { attrs, by_ref: _, mutability: _, ident: _, subpat } = self;
         let inner = if let Some((at, boxed)) = subpat {
-            quote!(__slice #at #boxed)
+            quote!(__match_vec_slice #at #boxed)
         } else {
             quote!(_)
         };
