@@ -64,8 +64,8 @@ help: consider borrowing here
 ```
 
 For the use case I had, borrowing the elements of `anchors` was not a problem, as I could just call
-`clone` in the one branch where I actually needed an owned value. The contents where only a short
-`proc_macro2::TokenTree`, running in ... _real shocker here:_ a different macro. The resulting code
+`clone` in the one branch where I actually needed an owned value. The contents where only short
+`proc_macro2::TokenTree`s, running in ... _real shocker here:_ another macro. The resulting code
 was:
 
 ```rust
@@ -85,7 +85,7 @@ But for a language that usually provides a significant amount of control over wh
 I was left wondering why there wasn't an easy way to match against an owned `Vec`, moving the values
 in the process.
 
-special casing a type that is literally defined as a struct...
+[Tangent on Vector Matching Syntax](#tangent-on-vector-matching-syntax)
 
 Obviously, the main difficulty here is that non-empty `Vec`s own a heap allocation which needs to be
 deallocated after the values are moved out. But there exist many ways to move values out of a `Vec`s
@@ -105,9 +105,9 @@ following:
 pub struct NonCopy(pub usize);
 
 fn main() {
-    let mut vec = vec![NonCopy(0), NonCopy(2), NonCopy(3), NonCopy(4)];
+    let mut my_vec = vec![NonCopy(0), NonCopy(2), NonCopy(3), NonCopy(4)];
     
-    match_vec!(match vec {
+    match_vec!(match my_vec {
         [] => {
             take_0()
         },
@@ -125,3 +125,45 @@ fn main() {
 ```
 
 **EXAMPLE UPDATE PENDING**
+
+## Tangent on Vector Matching Syntax
+
+This could probably be considered another restricting to matching on `Vec` directly: how should the
+syntax look?
+
+`Vec` is defined as "a contiguous growable array type", so in most cases it boils down to being "a
+slice on the heap with some reserved space for growth". Despite this and its extremely common
+presence within Rust code. `Vec` is implemented as a struct, simplified to:
+
+```rust
+struct Vec<T> {
+    ptr: *mut T,
+    cap: usize,
+    len: usize,
+}
+```
+
+And why shouldn't it be implemented as a struct? It doesn't do anything special. Implementing one is
+a pretty common task for CS students when learning about data structures. The problem is, if these
+fields were public, matching on a `Vec` like any other type would follow the struct pattern syntax:
+
+```rust
+match my_vec {
+    Vec { ptr, cap, len } => {},
+}
+```
+
+Or even:
+
+```rust
+match my_vec {
+    Vec { ptr, cap, len } if len == 0 => {},
+    Vec { ptr, cap, len } if len == 1 => {},
+    Vec { ptr, cap, len } if len >= 2 => {},
+}
+```
+
+Even introducing guard clauses for length checks, we're left with a raw pointer and a capacity. Not
+very helpful. It makes more sense to match `Vec`s like we do slices, so that's what this macro does.
+
+TODO: Implement for Box<[T]> too?
