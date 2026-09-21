@@ -24,6 +24,8 @@ fn take_vec_and_2(vec: Vec<NonCopy>, a: NonCopy, b: NonCopy) {
     println!("vec and 2 args: {vec:?}, {a:?}, {b:?}")
 }
 
+// TODO: boxed slice too, but with no catchall - could easily have a move catchall
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct NonCopy(pub usize);
 
@@ -42,7 +44,7 @@ fn main() {
         [a, _, c] => {
             take_2(a, c)
         },
-        [NonCopy(0), b, start @ ..] => {
+        [NonCopy(0), b, start @ .., _] => {
             take_vec_and_2(start, mine::ZERO, b)
         },
         [start @ .., a] => {

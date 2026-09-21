@@ -143,6 +143,8 @@ impl GenerateMatchBody for VecPatSlice {
             for (i, elem) in after.iter().enumerate() {
                 bindings.extend(
                     match elem.ident() {
+                        // TODO: Should implement a pop_n<T, N: usize>(vec: Vec<T>) so that unsafe code isn't macro generated.
+                        // Needs imports from the final crate.
                         Some(ident) => quote! {
                             let #ident = unsafe {
                                 __match_vec_spare[#i].assume_init_read()
@@ -156,7 +158,7 @@ impl GenerateMatchBody for VecPatSlice {
             }
 
             let new_len_expr = match catchall {
-                Some(_) => quote!(__match_vec_rem_len - #before_len),
+                Some(_) => quote!(__match_vec_rem_len),
                 None => quote!(0),
             };
 
