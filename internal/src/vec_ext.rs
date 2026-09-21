@@ -1,5 +1,13 @@
 use std::mem::{self, MaybeUninit};
 
+const fn uninit_array<T, const N: usize>() -> [MaybeUninit<T>; N] {
+    [const { MaybeUninit::uninit() }; N]
+}
+
+const fn take_uninit<T>(dest: &mut MaybeUninit<T>) -> MaybeUninit<T> {
+    mem::replace(dest, MaybeUninit::uninit())
+}
+
 pub trait VecExt<T: Sized> {
     unsafe fn pop_front_n<const N: usize>(&mut self) -> [T; N];
     unsafe fn pop_back_n<const N: usize>(&mut self) -> [T; N];
@@ -8,27 +16,64 @@ pub trait VecExt<T: Sized> {
 
 impl<T: Sized> VecExt<T> for Vec<T> {
     unsafe fn pop_front_n<const N: usize>(&mut self) -> [T; N] {
-        let mut popped: [MaybeUninit<T>; N] = [const { MaybeUninit::uninit() }; N];
-        let mut drain = self.drain(0..N);
-        for i in &mut popped {
-            *i = MaybeUninit::new(unsafe { drain.next().unwrap_unchecked() });
+        let rem_end = self.len();
+        unsafe { self.set_len(0) };
+        let spare = self.spare_capacity_mut();
+
+        let mut popped = uninit_array::<T, N>();
+        for i in 0..N {
+            popped[i] = take_uninit(&mut spare[i]);
         }
-        drop(drain);
-        unsafe { MaybeUninit::array_assume_init(popped) }
+
+        for i in N..rem_end {
+            spare[i - N] = take_uninit(&mut spare[i]);
+        }
+
+        unsafe {
+            self.set_len(rem_end - N);
+            MaybeUninit::array_assume_init(popped)
+        }
     }
 
     unsafe fn pop_back_n<const N: usize>(&mut self) -> [T; N] {
-        let mut popped: [MaybeUninit<T>; N] = [const { MaybeUninit::uninit() }; N];
         let len = self.len();
         unsafe { self.set_len(len - N) };
         let spare = self.spare_capacity_mut();
+
+        let mut popped = uninit_array::<T, N>();
         for i in 0..N {
-            popped[i] = MaybeUninit::new(unsafe { spare[i].assume_init_read() });
+            popped[i] = take_uninit(&mut spare[i]);
         }
+
         unsafe { MaybeUninit::array_assume_init(popped) }
     }
 
     unsafe fn pop_both<const F: usize, const B: usize>(&mut self) -> ([T; F], [T; B]) {
-        unsafe { (self.pop_front_n::<F>(), self.pop_back_n::<B>()) }
+        let whole_len = self.len();
+        let rem_end = whole_len - B;
+        unsafe { self.set_len(0) };
+        let spare = self.spare_capacity_mut();
+
+        let mut popped_front = uninit_array::<T, F>();
+        for i in 0..F {
+            popped_front[i] = take_uninit(&mut spare[i]);
+        }
+
+        for i in F..rem_end {
+            spare[i - F] = take_uninit(&mut spare[i]);
+        }
+
+        let mut popped_back = uninit_array::<T, B>();
+        for i in rem_end..whole_len {
+            popped_back[i - rem_end] = take_uninit(&mut spare[i]);
+        }
+
+        unsafe {
+            self.set_len(rem_end - F);
+            (
+                MaybeUninit::array_assume_init(popped_front),
+                MaybeUninit::array_assume_init(popped_back)
+            )
+        }
     }
 }
