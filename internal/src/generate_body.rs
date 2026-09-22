@@ -6,18 +6,16 @@ use crate::{VecPat, VecPatIdent, VecPatSlice};
 
 pub enum Catchall<'a> {
     Rest(&'a PatRest),
-    Ident(&'a Ident),
+    Ident(&'a VecPatIdent),
 }
 
 impl VecPat {
     fn as_catchall(&self) -> Option<Catchall<'_>> {
         match self {
             VecPat::Ident(
-                VecPatIdent { ident, subpat: Some((_, subpat)), .. }
-            ) => if subpat.is_catchall() {
+                ident @ VecPatIdent { subpat: Some((_, subpat)), .. }
+            ) if subpat.is_catchall() => {
                 Some(Catchall::Ident(ident))
-            } else {
-                None
             },
             VecPat::Rest(rest) => Some(Catchall::Rest(rest)),
             _ => None,
@@ -65,11 +63,21 @@ impl GenerateMatchBody for VecPat {
     }
 }
 
+impl VecPatIdent {
+    fn gen_binding(&self) -> TokenStream {
+        let VecPatIdent { attrs, by_ref, mutability, ident, .. } = self;
+        quote! {
+            #(#attrs)*
+            let #by_ref #mutability #ident = __match_vec_vec;
+        }
+    }
+}
+
 impl GenerateMatchBody for VecPatIdent {
     fn gen_match_body(&self, body: &Expr) -> TokenStream {
-        let VecPatIdent { ident, .. } = self;
+        let binding = self.gen_binding();
         quote! {
-            let #ident = __match_vec_vec;
+            #binding
             #body
         }
     }
@@ -170,7 +178,7 @@ impl GenerateMatchBody for VecPatSlice {
         };
 
         let bind_block = match catchall {
-            Some(Catchall::Ident(ident)) => quote!(let #ident = __match_vec_vec;),
+            Some(Catchall::Ident(ident)) => ident.gen_binding(),
             _ => quote!(),
         };
 

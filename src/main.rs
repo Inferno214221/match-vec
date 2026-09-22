@@ -30,7 +30,7 @@ fn take_vec_and_2(vec: Vec<NonCopy>, a: NonCopy, b: NonCopy) {
 pub struct NonCopy(pub usize);
 
 fn main() {
-    let mut vec = vec![NonCopy(0), NonCopy(2), NonCopy(3), NonCopy(4)];
+    let vec = vec![NonCopy(0), NonCopy(2), NonCopy(3), NonCopy(4)];
 
     mod mine {
         use super::NonCopy;
@@ -38,13 +38,13 @@ fn main() {
     }
 
     match_vec!(match vec {
-        [] => {
-            take_0()
+        ref mut vec_ref => {
+            take_vec(vec_ref)
         },
-        [a, _, c] => {
+        [a, _, ref c] => {
             take_2(a, c)
         },
-        [NonCopy(0), b, start @ .., _] => {
+        [NonCopy(0), b, ref mut start @ .., _] => {
             take_vec_and_2(start, mine::ZERO, b)
         },
         [start @ .., a] => {
