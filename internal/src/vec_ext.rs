@@ -9,8 +9,22 @@ const fn take_uninit<T>(dest: &mut MaybeUninit<T>) -> MaybeUninit<T> {
 }
 
 pub trait VecExt<T: Sized> {
+    /// Removes the first N items from this Vec, returning them as an array.
+    ///
+    /// # Safety
+    /// The Vec must contain at least N items. Failure to ensure this is undefined behaviour.
     unsafe fn pop_front_n<const N: usize>(&mut self) -> [T; N];
+
+    /// Removes the last N items from this Vec, returning them as an array.
+    ///
+    /// # Safety
+    /// The Vec must contain at least N items. Failure to ensure this is undefined behaviour.
     unsafe fn pop_back_n<const N: usize>(&mut self) -> [T; N];
+
+    /// Removes the first F and last B items from this Vec, returning them as two separate arrays.
+    ///
+    /// # Safety
+    /// The Vec must contain at least F + B items. Failure to ensure this is undefined behaviour.
     unsafe fn pop_both<const F: usize, const B: usize>(&mut self) -> ([T; F], [T; B]);
 }
 
