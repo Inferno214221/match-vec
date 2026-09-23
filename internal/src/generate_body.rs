@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Expr, Ident, PatConst, PatLit, PatPath, PatRange, PatReference, PatRest, PatStruct, PatTuple, PatTupleStruct, PatWild};
+use syn::{Expr, PatConst, PatLit, PatPath, PatRange, PatReference, PatRest, PatStruct, PatTuple, PatTupleStruct, PatWild};
 
 use crate::{VecPat, VecPatIdent, VecPatSlice};
 
@@ -32,9 +32,12 @@ impl VecPat {
         }
     }
 
-    fn ident(&self) -> Option<&Ident> {
+    fn ident_pat(&self) -> Option<TokenStream> {
         match self {
-            VecPat::Ident(ident) => Some(&ident.ident),
+            VecPat::Ident(VecPatIdent { attrs, by_ref, mutability, ident, .. }) => Some(quote! {
+                #(#attrs)*
+                let #by_ref #mutability #ident
+            }),
             _ => None,
         }
     }
@@ -126,9 +129,9 @@ impl GenerateMatchBody for VecPatSlice {
             let mut bindings = TokenStream::default();
             for elem in before {
                 bindings.extend(
-                    match elem.ident() {
+                    match elem.ident_pat() {
                         Some(ident) => quote! {
-                            let #ident = unsafe { __match_vec_drain.next().unwrap_unchecked() };
+                            #ident = unsafe { __match_vec_drain.next().unwrap_unchecked() };
                         },
                         None => quote! {
                             let _ = __match_vec_drain.next();
@@ -150,11 +153,11 @@ impl GenerateMatchBody for VecPatSlice {
             let mut bindings = TokenStream::default();
             for (i, elem) in after.iter().enumerate() {
                 bindings.extend(
-                    match elem.ident() {
+                    match elem.ident_pat() {
                         // TODO: Should implement a pop_n<T, N: usize>(vec: Vec<T>) so that unsafe code isn't macro generated.
                         // Needs imports from the final crate.
                         Some(ident) => quote! {
-                            let #ident = unsafe {
+                            #ident = unsafe {
                                 __match_vec_spare[#i].assume_init_read()
                             };
                         },
