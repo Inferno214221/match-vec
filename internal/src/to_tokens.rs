@@ -28,7 +28,6 @@ impl ToTokens for VecArm {
         tokens.extend(quote! {
             #(#attrs)*
             #pat #fat_arrow_token {
-                // TODO: implement the body here
                 #body
             } #comma
         });
@@ -57,8 +56,8 @@ impl ToTokens for VecPat {
 impl ToTokens for VecPatIdent {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let VecPatIdent { attrs, by_ref: _, mutability: _, ident: _, subpat } = self;
-        let inner = if let Some((at, boxed)) = subpat {
-            quote!(__match_vec_slice #at #boxed)
+        let inner = if let Some((_, boxed)) = subpat {
+            quote!(#boxed)
         } else {
             quote!(_)
         };

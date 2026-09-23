@@ -1,4 +1,4 @@
-use match_vec_macro::match_vec;
+use match_vec::match_vec;
 
 fn take_0() {
     println!("0 args")
@@ -38,8 +38,8 @@ fn main() {
     }
 
     match_vec!(match vec {
-        ref vec_ref => {
-            take_vec(vec_ref.clone())
+        [] => {
+            take_0()
         },
         [a, _, ref c] => {
             take_2(a, c.clone())

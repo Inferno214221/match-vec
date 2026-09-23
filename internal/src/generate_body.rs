@@ -36,7 +36,7 @@ impl VecPat {
         match self {
             VecPat::Ident(VecPatIdent { attrs, by_ref, mutability, ident, .. }) => Some(quote! {
                 #(#attrs)*
-                let #by_ref #mutability #ident
+                #by_ref #mutability #ident
             }),
             _ => None,
         }
@@ -88,6 +88,9 @@ impl GenerateMatchBody for VecPatIdent {
 
 impl GenerateMatchBody for VecPatSlice {
     fn gen_match_body(&self, body: &Expr) -> TokenStream {
+        #[allow(non_snake_case)]
+        let VecExt = quote!(::match_vec::internal::VecExt);
+
         let mut elems = self.elems.iter().peekable();
         let mut first = Vec::new();
 
@@ -114,82 +117,59 @@ impl GenerateMatchBody for VecPatSlice {
             after = first;
         }
 
-        let mem_drop = quote!(::core::mem::drop);
-
-        let before_len = before.len();
-
-        let len_block = match catchall {
-            Some(_) => quote!(let __match_vec_rem_len = __match_vec_slice.len();),
-            None    => quote!(),
+        let pop_bindings = match (&before[..], &after[..]) {
+            ([], [])        => quote!(),
+            ([], after)     => {
+                let after_len = after.len();
+                let after_destruct = after.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+                quote! {
+                    // SAFETY: __match_vec_vec contains #after_len elements due to pattern matching.
+                    let [
+                        #(#after_destruct),*
+                    ] = unsafe {
+                        #VecExt::pop_back_n::<#after_len>(&mut __match_vec_vec)
+                    };
+                }
+            },
+            (before, [])    => {
+                let before_len = before.len();
+                let before_destruct = before.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+                quote! {
+                    // SAFETY: __match_vec_vec contains #before_len elements due to pattern
+                    // matching.
+                    let [
+                        #(#before_destruct),*
+                    ] = unsafe {
+                        #VecExt::pop_front_n::<#before_len>(&mut __match_vec_vec)
+                    };
+                }
+            },
+            (before, after) => {
+                let before_len = before.len();
+                let after_len = after.len();
+                let before_destruct = before.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+                let after_destruct = after.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+                quote! {
+                    // SAFETY: __match_vec_vec contains #before_len + #after_len elements due to
+                    // pattern matching.
+                    let (
+                        [#(#before_destruct),*], [#(#after_destruct),*]
+                    ) = unsafe {
+                        #VecExt::pop_both::<#before_len, #after_len>(&mut __match_vec_vec)
+                    };
+                }
+            },
         };
 
-        let before_block = if before.is_empty() {
-            quote!()
+        let catchall_binding = if let Some(Catchall::Ident(ident)) = catchall {
+            ident.gen_binding()
         } else {
-            let mut bindings = TokenStream::default();
-            for elem in before {
-                bindings.extend(
-                    match elem.ident_pat() {
-                        Some(ident) => quote! {
-                            #ident = unsafe { __match_vec_drain.next().unwrap_unchecked() };
-                        },
-                        None => quote! {
-                            let _ = __match_vec_drain.next();
-                        },
-                    }
-                );
-            }
-
-            quote! {
-                let mut __match_vec_drain = __match_vec_vec.drain(..#before_len);
-                #bindings
-                #mem_drop(__match_vec_drain);
-            }
-        };
-
-        let after_block = if after.is_empty() {
             quote!()
-        } else {
-            let mut bindings = TokenStream::default();
-            for (i, elem) in after.iter().enumerate() {
-                bindings.extend(
-                    match elem.ident_pat() {
-                        // TODO: Should implement a pop_n<T, N: usize>(vec: Vec<T>) so that unsafe code isn't macro generated.
-                        // Needs imports from the final crate.
-                        Some(ident) => quote! {
-                            #ident = unsafe {
-                                __match_vec_spare[#i].assume_init_read()
-                            };
-                        },
-                        None => quote! {
-                            unsafe { __match_vec_spare[#i].assume_init_drop() };
-                        },
-                    }
-                );
-            }
-
-            let new_len_expr = match catchall {
-                Some(_) => quote!(__match_vec_rem_len),
-                None => quote!(0),
-            };
-
-            quote! {
-                unsafe { __match_vec_vec.set_len(#new_len_expr) };
-                let __match_vec_spare = __match_vec_vec.spare_capacity_mut();
-                #bindings
-            }
-        };
-
-        let bind_block = match catchall {
-            Some(Catchall::Ident(ident)) => ident.gen_binding(),
-            _ => quote!(),
         };
 
         quote! {
-            #len_block
-            #before_block
-            #after_block
-            #bind_block
+            #pop_bindings
+            #catchall_binding
             #body
         }
     }
