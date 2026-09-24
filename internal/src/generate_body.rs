@@ -71,7 +71,7 @@ impl VecPatIdent {
         let VecPatIdent { attrs, by_ref, mutability, ident, .. } = self;
         quote! {
             #(#attrs)*
-            let #by_ref #mutability #ident = __match_vec_vec;
+            let #by_ref #mutability #ident = __match_vec_slice;
         }
     }
 }
@@ -117,30 +117,73 @@ impl GenerateMatchBody for VecPatSlice {
             after = first;
         }
 
+        let catchall_binding = if let Some(Catchall::Ident(ident)) = catchall {
+            Some(ident.gen_binding())
+        } else {
+            None
+        };
+
         let pop_bindings = match (&before[..], &after[..]) {
-            ([], [])        => quote!(),
-            ([], after)     => {
+            ([], []) => quote!(),
+            ([], all) if catchall.is_none() => {
+                let all_len = all.len();
+                let all_destruct = all.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+
+                quote! {
+                    // SAFETY: __match_vec_slice contains exactly #all_len elements due to pattern
+                    // matching.
+                    let [
+                        #(#all_destruct),*
+                    ] = unsafe {
+                        #SliceExt::take_all_exact::<#all_len>(__match_vec_slice)
+                    };
+                }
+            },
+            ([], after) => {
                 let after_len = after.len();
                 let after_destruct = after.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+
+                let expr = if catchall_binding.is_some() {
+                    quote! {
+                        #SliceExt::pop_back::<#after_len>(&mut __match_vec_slice)
+                    }
+                } else {
+                    quote! {
+                        #SliceExt::take_back::<#after_len>(__match_vec_slice)
+                    }
+                };
+
                 quote! {
-                    // SAFETY: __match_vec_vec contains #after_len elements due to pattern matching.
+                    // SAFETY: __match_vec_slice contains #after_len elements due to pattern
+                    // matching.
                     let [
                         #(#after_destruct),*
                     ] = unsafe {
-                        #SliceExt::pop_back::<#after_len>(&mut __match_vec_vec)
+                        #expr
                     };
                 }
             },
             (before, [])    => {
                 let before_len = before.len();
                 let before_destruct = before.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+
+                let expr = if catchall_binding.is_some() {
+                    quote! {
+                        #SliceExt::pop_front::<#before_len>(&mut __match_vec_slice)
+                    }
+                } else {
+                    quote! {
+                        #SliceExt::take_front::<#before_len>(__match_vec_slice)
+                    }
+                };
+
                 quote! {
-                    // SAFETY: __match_vec_vec contains #before_len elements due to pattern
+                    // SAFETY: __match_vec_slice contains #before_len elements due to pattern
                     // matching.
                     let [
                         #(#before_destruct),*
                     ] = unsafe {
-                        #SliceExt::pop_front::<#before_len>(&mut __match_vec_vec)
+                        #expr
                     };
                 }
             },
@@ -149,22 +192,27 @@ impl GenerateMatchBody for VecPatSlice {
                 let after_len = after.len();
                 let before_destruct = before.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
                 let after_destruct = after.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+
+                let expr = if catchall_binding.is_some() {
+                    quote! {
+                        #SliceExt::pop_both::<#before_len, #after_len>(&mut __match_vec_slice)
+                    }
+                } else {
+                    quote! {
+                        #SliceExt::take_both::<#before_len, #after_len>(__match_vec_slice)
+                    }
+                };
+
                 quote! {
-                    // SAFETY: __match_vec_vec contains #before_len + #after_len elements due to
+                    // SAFETY: __match_vec_slice contains #before_len + #after_len elements due to
                     // pattern matching.
                     let (
                         [#(#before_destruct),*], [#(#after_destruct),*]
                     ) = unsafe {
-                        #SliceExt::pop_both::<#before_len, #after_len>(&mut __match_vec_vec)
+                        #expr
                     };
                 }
             },
-        };
-
-        let catchall_binding = if let Some(Catchall::Ident(ident)) = catchall {
-            ident.gen_binding()
-        } else {
-            quote!()
         };
 
         quote! {
