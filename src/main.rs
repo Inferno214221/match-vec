@@ -30,14 +30,14 @@ fn take_vec_and_2(vec: Vec<NonCopy>, a: NonCopy, b: NonCopy) {
 pub struct NonCopy(pub usize);
 
 fn main() {
-    let vec = vec![NonCopy(0), NonCopy(2), NonCopy(3), NonCopy(4)];
+    let boxed = vec![NonCopy(0), NonCopy(2), NonCopy(3), NonCopy(4)].into_boxed_slice();
 
     mod mine {
         use super::NonCopy;
         pub const ZERO: NonCopy = NonCopy(0);
     }
 
-    match_vec!(match vec {
+    match_vec!(match boxed {
         [] => {
             take_0()
         },
@@ -45,10 +45,10 @@ fn main() {
             take_2(a, c.clone())
         },
         [NonCopy(0), b, ref start @ .., _] => {
-            take_vec_and_2(start.clone(), mine::ZERO, b)
+            take_vec_and_2(start.to_vec(), mine::ZERO, b)
         },
         [start @ .., a] => {
-            take_vec_and_1(start, a)
+            take_vec_and_1(start.to_vec(), a)
         },
     });
 }

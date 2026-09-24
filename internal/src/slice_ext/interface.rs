@@ -11,7 +11,7 @@ pub const fn take_uninit<T>(dest: &mut MaybeUninit<T>) -> MaybeUninit<T> {
 /// An extension trait that provides methods for moving a constant number of items out of an owned
 /// slice. All methods are unsafe because they perform no checks to ensure that the correct number
 /// of items are present, this is the responsibility of the caller.
-pub trait SliceExt<T: Sized> {
+pub trait SliceExt<T: Sized>: Sized {
     /// Removes the first N items from this slice, returning them as an array. Remaining items are
     /// preserved, with self updated accordingly.
     ///
@@ -59,4 +59,10 @@ pub trait SliceExt<T: Sized> {
     /// # Safety
     /// This slice must contain at least F + B items. Failure to ensure this is undefined behaviour.
     unsafe fn take_both<const F: usize, const B: usize>(self) -> ([T; F], [T; B]);
+
+    /// This is just an identity function, but it validates two things about the type provided as
+    /// the match expression:
+    /// - The type implements SliceExt.
+    /// - The type is owned, and is moved as a part of this invocation.
+    fn assert_trait_and_move(self) -> Self { self }
 }

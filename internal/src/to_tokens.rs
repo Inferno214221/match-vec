@@ -8,11 +8,11 @@ use crate::{GenerateMatchBody, MatchArgs, VecArm, VecPat, VecPatIdent, VecPatSli
 impl ToTokens for MatchArgs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         #[allow(non_snake_case)]
-        let Vec = quote!(::std::vec::Vec);
+        let SliceExt = quote!(::match_vec::internal::SliceExt);
 
         let MatchArgs { attrs, expr, brace_token: _, arms } = self;
         tokens.extend(quote! {
-            let mut __match_vec_vec: #Vec<_> = #expr;
+            let mut __match_vec_vec = #SliceExt::assert_trait_and_move(#expr);
             #(#attrs)*
             match &__match_vec_vec[..] {
                 #(#arms)*
