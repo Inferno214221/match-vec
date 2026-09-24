@@ -14,7 +14,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
     unsafe fn pop_front<const N: usize>(&mut self) -> [T; N] {
         let mut boxed = boxed_slice_to_uninit(mem::take(self));
 
-        let rem_end = boxed.len();
+        let len = boxed.len();
         let slice = &mut *boxed;
 
         let mut popped = uninit_array::<T, N>();
@@ -22,8 +22,8 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
             popped[i] = take_uninit(&mut slice[i]);
         }
 
-        let mut new = Box::new_uninit_slice(rem_end - N);
-        for i in N..rem_end {
+        let mut new = Box::new_uninit_slice(len - N);
+        for i in N..len {
             new[i - N] = take_uninit(&mut slice[i]);
         }
 
@@ -38,8 +38,8 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
     unsafe fn pop_back<const N: usize>(&mut self) -> [T; N] {
         let mut boxed = boxed_slice_to_uninit(mem::take(self));
 
-        let whole_len = boxed.len();
-        let rem_end = whole_len - N;
+        let len = boxed.len();
+        let rem_end = len - N;
         let slice = &mut *boxed;
 
         let mut new = Box::new_uninit_slice(rem_end);
@@ -47,24 +47,24 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
             new[i] = take_uninit(&mut slice[i]);
         }
 
-        let mut popped_back = uninit_array::<T, N>();
-        for i in rem_end..whole_len {
-            popped_back[i - rem_end] = take_uninit(&mut slice[i]);
+        let mut popped = uninit_array::<T, N>();
+        for i in rem_end..len {
+            popped[i - rem_end] = take_uninit(&mut slice[i]);
         }
 
         drop(boxed);
 
         unsafe {
             *self = new.assume_init();
-            MaybeUninit::array_assume_init(popped_back)
+            MaybeUninit::array_assume_init(popped)
         }
     }
 
     unsafe fn pop_both<const F: usize, const B: usize>(&mut self) -> ([T; F], [T; B]) {
         let mut boxed = boxed_slice_to_uninit(mem::take(self));
 
-        let whole_len = boxed.len();
-        let rem_end = whole_len - B;
+        let len = boxed.len();
+        let rem_end = len - B;
         let slice = &mut *boxed;
 
         let mut popped_front = uninit_array::<T, F>();
@@ -78,7 +78,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         }
 
         let mut popped_back = uninit_array::<T, B>();
-        for i in rem_end..whole_len {
+        for i in rem_end..len {
             popped_back[i - rem_end] = take_uninit(&mut slice[i]);
         }
 
@@ -127,8 +127,8 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
     unsafe fn take_back<const N: usize>(mut self) -> [T; N] {
         let mut boxed = boxed_slice_to_uninit(mem::take(&mut self));
 
-        let whole_len = boxed.len();
-        let rem_end = whole_len - N;
+        let len = boxed.len();
+        let rem_end = len - N;
         let slice = &mut *boxed;
 
         for item in &mut slice[..rem_end] {
@@ -136,7 +136,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         }
 
         let mut popped_back = uninit_array::<T, N>();
-        for i in rem_end..whole_len {
+        for i in rem_end..len {
             popped_back[i - rem_end] = take_uninit(&mut slice[i]);
         }
 
@@ -150,8 +150,8 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
     unsafe fn take_both<const F: usize, const B: usize>(mut self) -> ([T; F], [T; B]) {
         let mut boxed = boxed_slice_to_uninit(mem::take(&mut self));
 
-        let whole_len = boxed.len();
-        let rem_end = whole_len - B;
+        let len = boxed.len();
+        let rem_end = len - B;
         let slice = &mut *boxed;
 
         let mut popped_front = uninit_array::<T, F>();
@@ -164,7 +164,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         }
 
         let mut popped_back = uninit_array::<T, B>();
-        for i in rem_end..whole_len {
+        for i in rem_end..len {
             popped_back[i - rem_end] = take_uninit(&mut slice[i]);
         }
 

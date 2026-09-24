@@ -4,7 +4,7 @@ use super::{SliceExt, take_uninit, uninit_array};
 
 impl<T: Sized> SliceExt<T> for Vec<T> {
     unsafe fn pop_front<const N: usize>(&mut self) -> [T; N] {
-        let rem_end = self.len();
+        let len = self.len();
         unsafe { self.set_len(0) };
         let spare = self.spare_capacity_mut();
 
@@ -13,12 +13,12 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
             popped[i] = take_uninit(&mut spare[i]);
         }
 
-        for i in N..rem_end {
+        for i in N..len {
             spare[i - N] = take_uninit(&mut spare[i]);
         }
 
         unsafe {
-            self.set_len(rem_end - N);
+            self.set_len(len - N);
             MaybeUninit::array_assume_init(popped)
         }
     }
@@ -37,8 +37,8 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
     }
 
     unsafe fn pop_both<const F: usize, const B: usize>(&mut self) -> ([T; F], [T; B]) {
-        let whole_len = self.len();
-        let rem_end = whole_len - B;
+        let len = self.len();
+        let rem_end = len - B;
         unsafe { self.set_len(0) };
         let spare = self.spare_capacity_mut();
 
@@ -52,7 +52,7 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
         }
 
         let mut popped_back = uninit_array::<T, B>();
-        for i in rem_end..whole_len {
+        for i in rem_end..len {
             popped_back[i - rem_end] = take_uninit(&mut spare[i]);
         }
 
@@ -92,8 +92,8 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
     }
 
     unsafe fn take_both<const F: usize, const B: usize>(mut self) -> ([T; F], [T; B]) {
-        let whole_len = self.len();
-        let rem_end = whole_len - B;
+        let len = self.len();
+        let rem_end = len - B;
         unsafe { self.set_len(0) };
         let spare = self.spare_capacity_mut();
 
@@ -107,7 +107,7 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
         }
 
         let mut popped_back = uninit_array::<T, B>();
-        for i in rem_end..whole_len {
+        for i in rem_end..len {
             popped_back[i - rem_end] = take_uninit(&mut spare[i]);
         }
 
