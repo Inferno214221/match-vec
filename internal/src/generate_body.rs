@@ -89,7 +89,7 @@ impl GenerateMatchBody for VecPatIdent {
 impl GenerateMatchBody for VecPatSlice {
     fn gen_match_body(&self, body: &Expr) -> TokenStream {
         #[allow(non_snake_case)]
-        let VecExt = quote!(::match_vec::internal::VecExt);
+        let SliceExt = quote!(::match_vec::internal::SliceExt);
 
         let mut elems = self.elems.iter().peekable();
         let mut first = Vec::new();
@@ -127,7 +127,7 @@ impl GenerateMatchBody for VecPatSlice {
                     let [
                         #(#after_destruct),*
                     ] = unsafe {
-                        #VecExt::pop_back_n::<#after_len>(&mut __match_vec_vec)
+                        #SliceExt::pop_back::<#after_len>(&mut __match_vec_vec)
                     };
                 }
             },
@@ -140,7 +140,7 @@ impl GenerateMatchBody for VecPatSlice {
                     let [
                         #(#before_destruct),*
                     ] = unsafe {
-                        #VecExt::pop_front_n::<#before_len>(&mut __match_vec_vec)
+                        #SliceExt::pop_front::<#before_len>(&mut __match_vec_vec)
                     };
                 }
             },
@@ -155,7 +155,7 @@ impl GenerateMatchBody for VecPatSlice {
                     let (
                         [#(#before_destruct),*], [#(#after_destruct),*]
                     ) = unsafe {
-                        #VecExt::pop_both::<#before_len, #after_len>(&mut __match_vec_vec)
+                        #SliceExt::pop_both::<#before_len, #after_len>(&mut __match_vec_vec)
                     };
                 }
             },
