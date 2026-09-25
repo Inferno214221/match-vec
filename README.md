@@ -138,38 +138,28 @@ When expanded, the match becomes something similar to:
 
 ```rust
 fn main() {
-    let me_vec = ::alloc::boxed::box_assume_init_into_vec_unsafe(
-        ::alloc::intrinsics::write_box_via_move(
-            ::alloc::boxed::Box::new_uninit(),
-            [NonCopy(0), NonCopy(2), NonCopy(3), NonCopy(4)],
-        ),
-    );
+    let me_vec = vec![NonCopy(0), NonCopy(2), NonCopy(3), NonCopy(4)];
     
     mod mine {
         use super::NonCopy;
         pub const ZERO: NonCopy = NonCopy(0);
     }
     
-    let mut __match_vec_slice = ::match_vec::internal::SliceExt::assert_trait_and_move(
-        me_vec,
-    );
+    let mut __match_vec_slice = SliceExt::assert_trait_and_move(me_vec);
     match &__match_vec_slice[..] {
         [mine::ZERO, _, .., _, mine::ZERO] => {
             let ([_, a], [ref b, _]) = unsafe {
-                ::match_vec::internal::SliceExt::take_both::<
-                    2usize,
-                    2usize,
-                >(__match_vec_slice)
+                SliceExt::take_both::<2, 2>(__match_vec_slice)
             };
+            
             { take_2(a, b.clone()) }
         }
         [NonCopy(0), _, ..] => {
             let [_, a] = unsafe {
-                ::match_vec::internal::SliceExt::pop_front::<
-                    2usize,
-                >(&mut __match_vec_slice)
+                SliceExt::pop_front::<2>(&mut __match_vec_slice)
             };
             let ref mut end = __match_vec_slice;
+            
             {
                 end.push(NonCopy(7));
                 take_vec_and_2(end.to_owned(), mine::ZERO, a)
@@ -177,11 +167,10 @@ fn main() {
         }
         [.., _] => {
             let [mut a] = unsafe {
-                ::match_vec::internal::SliceExt::pop_back::<
-                    1usize,
-                >(&mut __match_vec_slice)
+                SliceExt::pop_back::<1>(&mut __match_vec_slice)
             };
             let ref start = __match_vec_slice;
+            
             {
                 a.0 += 1;
                 take_vec_and_1(start.to_owned(), a)
@@ -189,10 +178,9 @@ fn main() {
         }
         [_, _] => {
             let [a, _] = unsafe {
-                ::match_vec::internal::SliceExt::take_all_exact::<
-                    2usize,
-                >(__match_vec_slice)
+                SliceExt::take_all_exact::<2>(__match_vec_slice)
             };
+            
             { take_1(a) }
         }
         [] => take_0(),
