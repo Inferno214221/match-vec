@@ -1,6 +1,6 @@
 # Match Vec (`match_vec`)
 
-A proc macro for matching and moving out of a `Vec`.
+A proc macro for matching and moving out of a `Vec<T>` or a `Box<[T]>`.
 
 ## Motivation
 
@@ -65,7 +65,7 @@ help: consider borrowing here
 
 For the use case I had, borrowing the elements of `anchors` was not a problem, as I could just call
 `clone` in the one branch where I actually needed an owned value. The contents where only short
-`proc_macro2::TokenTree`s, running in ... _real shocker here:_ another macro. The resulting code
+`proc_macro2::TokenTree`s, running in another macro. The resulting code
 was:
 
 ```rust
@@ -89,16 +89,13 @@ in the process.
 
 Obviously, the main difficulty here is that non-empty `Vec`s own a heap allocation which needs to be
 deallocated after the values are moved out. But there exist many ways to move values out of a `Vec`s
-heap: `pop`, `drain`, `remove`, etc. Moving off of the heap it understood by the compiler, even if
-[only when dereferencing a
-`Box`](https://manishearth.github.io/blog/2017/01/10/rust-tidbits-box-is-special/).
+heap: `pop`, `drain`, `remove`, etc.
 
 ## Functionality
 
 Anyway, it's not all that hard to write code that matches against the sliced `Vec`, moves those
 values off of the heap and binds them to variables. That's what this macro does, resulting in an
-expression very similar to matching on a reference to a slice. It lets you write code like the
-following:
+expression very similar to matching on a slice reference. It lets you write code like the following:
 
 ```rust
 #[derive(Debug, PartialEq, Eq)]
@@ -116,16 +113,16 @@ fn main() {
         [mine::ZERO, a, .., ref b, mine::ZERO] => {
             take_2(a, b.clone())
         },
-        [NonCopy(0), a, ref mut end @ ..] => {
+        [NonCopy(0), a, mut end @ ..] => {
             end.push(NonCopy(7));
-            take_vec_and_2(end.to_owned(), mine::ZERO, a)
+            take_vec_and_2(end, mine::ZERO, a)
+        },
+        [a, _] => {
+            take_1(a)
         },
         [ref start @ .., mut a] => {
             a.0 += 1;
             take_vec_and_1(start.to_owned(), a)
-        },
-        [a, _] => {
-            take_1(a)
         },
         [] => {
             take_0()
@@ -158,12 +155,19 @@ fn main() {
             let [_, a] = unsafe {
                 SliceExt::pop_front::<2>(&mut __match_vec_slice)
             };
-            let ref mut end = __match_vec_slice;
+            let mut end = __match_vec_slice;
             
             {
                 end.push(NonCopy(7));
-                take_vec_and_2(end.to_owned(), mine::ZERO, a)
+                take_vec_and_2(end, mine::ZERO, a)
             }
+        }
+        [_, _] => {
+            let [a, _] = unsafe {
+                SliceExt::take_all_exact::<2>(__match_vec_slice)
+            };
+            
+            { take_1(a) }
         }
         [.., _] => {
             let [mut a] = unsafe {
@@ -176,17 +180,14 @@ fn main() {
                 take_vec_and_1(start.to_owned(), a)
             }
         }
-        [_, _] => {
-            let [a, _] = unsafe {
-                SliceExt::take_all_exact::<2>(__match_vec_slice)
-            };
-            
-            { take_1(a) }
-        }
         [] => take_0(),
     };
 }
 ```
+
+Usage looks exactly the same for a `Box`ed slice, with exactly the same functionality. The only
+difference is that if a rest pattern is also bound to a variable, a reallocation is required and all
+values matched by this rest pattern are moved to a new `Box`. This is true even if the pattern is preceded be `ref` or `ref mut`.
 
 ## Tangent on Vector Matching Syntax
 
@@ -227,5 +228,3 @@ match my_vec {
 
 Even introducing guard clauses for length checks, we're left with a raw pointer and a capacity. Not
 very helpful. It makes more sense to match `Vec`s like we do slices, so that's what this macro does.
-
-TODO: Implement for Box<[T]> too?
