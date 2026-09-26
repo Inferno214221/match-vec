@@ -87,8 +87,8 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
     }
 
     unsafe fn take_all_exact<const N: usize>(mut self) -> [T; N] {
-        // SAFETY: The caller guarantees that the `Vec` contains exactly `N` items, so we redirect to
-        // `pop_back`, with the remaining empty `Vec` being implicitly dropped.
+        // SAFETY: The caller guarantees that the `Vec` contains exactly `N` items, so we redirect
+        // to `pop_back`, with the remaining empty `Vec` being implicitly dropped.
         unsafe { self.pop_back() }
     }
 

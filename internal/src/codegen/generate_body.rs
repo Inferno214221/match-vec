@@ -32,13 +32,13 @@ impl VecPat {
         }
     }
 
-    fn ident_pat(&self) -> Option<TokenStream> {
+    fn ident_pat(&self) -> TokenStream {
         match self {
-            VecPat::Ident(VecPatIdent { attrs, by_ref, mutability, ident, .. }) => Some(quote! {
+            VecPat::Ident(VecPatIdent { attrs, by_ref, mutability, ident, .. }) => quote! {
                 #(#attrs)*
                 #by_ref #mutability #ident
-            }),
-            _ => None,
+            },
+            _ => quote!(_),
         }
     }
 }
@@ -127,7 +127,7 @@ impl GenerateMatchBody for VecPatSlice {
             ([], []) => quote!(),
             ([], all) if catchall.is_none() => {
                 let all_len = all.len();
-                let all_destruct = all.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+                let all_destruct = all.iter().copied().map(VecPat::ident_pat);
 
                 quote! {
                     // SAFETY: __match_vec_slice contains exactly #all_len elements due to pattern
@@ -141,7 +141,7 @@ impl GenerateMatchBody for VecPatSlice {
             },
             ([], after) => {
                 let after_len = after.len();
-                let after_destruct = after.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+                let after_destruct = after.iter().copied().map(VecPat::ident_pat);
 
                 let expr = if catchall_binding.is_some() {
                     quote! {
@@ -165,7 +165,7 @@ impl GenerateMatchBody for VecPatSlice {
             },
             (before, [])    => {
                 let before_len = before.len();
-                let before_destruct = before.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+                let before_destruct = before.iter().copied().map(VecPat::ident_pat);
 
                 let expr = if catchall_binding.is_some() {
                     quote! {
@@ -190,8 +190,8 @@ impl GenerateMatchBody for VecPatSlice {
             (before, after) => {
                 let before_len = before.len();
                 let after_len = after.len();
-                let before_destruct = before.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
-                let after_destruct = after.iter().map(|p| p.ident_pat().unwrap_or(quote!(_)));
+                let before_destruct = before.iter().copied().map(VecPat::ident_pat);
+                let after_destruct = after.iter().copied().map(VecPat::ident_pat);
 
                 let expr = if catchall_binding.is_some() {
                     quote! {
