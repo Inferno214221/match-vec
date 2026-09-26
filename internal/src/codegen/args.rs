@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use syn::{Arm, Attribute, Expr, ExprMatch, Ident, Pat, PatConst, PatIdent, PatLit, PatPath, PatRange, PatReference, PatRest, PatSlice, PatStruct, PatTuple, PatTupleStruct, PatWild, Token, punctuated::Punctuated, token::{Brace, Bracket}};
 
 pub struct MatchArgs {
@@ -8,7 +10,7 @@ pub struct MatchArgs {
 }
 
 impl TryFrom<ExprMatch> for MatchArgs {
-    type Error = ();
+    type Error = Box<dyn Error>;
 
     fn try_from(value: ExprMatch) -> Result<Self, Self::Error> {
         let ExprMatch {
@@ -32,7 +34,7 @@ pub struct VecArm {
 }
 
 impl TryFrom<Arm> for VecArm {
-    type Error = ();
+    type Error = Box<dyn Error>;
 
     fn try_from(value: Arm) -> Result<Self, Self::Error> {
         let Arm {
@@ -64,7 +66,7 @@ pub enum VecPat {
 }
 
 impl TryFrom<Pat> for VecPat {
-    type Error = ();
+    type Error = Box<dyn Error>;
 
     fn try_from(value: Pat) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -80,7 +82,10 @@ impl TryFrom<Pat> for VecPat {
             Pat::Tuple(tup)       => VecPat::Tuple(tup),
             Pat::TupleStruct(tup) => VecPat::TupleStruct(tup),
             Pat::Wild(wild)       => VecPat::Wild(wild),
-            _ => Err(())?
+            _ => Err(
+                "macro input uses match syntax that isn't valid for matching against a Vec<T> or \
+                Box<[T]>"
+            )?
         })
     }
 }
@@ -94,7 +99,7 @@ pub struct VecPatIdent {
 }
 
 impl TryFrom<PatIdent> for VecPatIdent {
-    type Error = ();
+    type Error = Box<dyn Error>;
 
     fn try_from(value: PatIdent) -> Result<Self, Self::Error> {
         let PatIdent { attrs, by_ref, mutability, ident, subpat } = value;
@@ -118,7 +123,7 @@ pub struct VecPatSlice {
 }
 
 impl TryFrom<PatSlice> for VecPatSlice {
-    type Error = ();
+    type Error = Box<dyn Error>;
 
     fn try_from(value: PatSlice) -> Result<Self, Self::Error> {
         let PatSlice { attrs, bracket_token, elems } = value;

@@ -1,7 +1,21 @@
+use std::error::Error;
+
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 
 use super::{GenerateMatchBody, MatchArgs, VecArm, VecPat, VecPatIdent, VecPatSlice};
+
+pub fn tokenize_error(res: Result<TokenStream, Box<dyn Error>>) -> TokenStream {
+    match res {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            let err = format!("{}", err);
+            quote! {
+                ::std::compile_error!(#err)
+            }
+        },
+    }
+}
 
 impl ToTokens for MatchArgs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -22,7 +36,7 @@ impl ToTokens for MatchArgs {
 impl ToTokens for VecArm {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let VecArm { attrs, pat, fat_arrow_token, body, comma } = self;
-        let body = pat.gen_match_body(body);
+        let body = tokenize_error(pat.gen_match_body(body));
         tokens.extend(quote! {
             #(#attrs)*
             #pat #fat_arrow_token {

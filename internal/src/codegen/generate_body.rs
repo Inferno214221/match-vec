@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Expr, PatConst, PatLit, PatPath, PatRange, PatReference, PatRest, PatStruct, PatTuple, PatTupleStruct, PatWild};
@@ -44,11 +46,11 @@ impl VecPat {
 }
 
 pub trait GenerateMatchBody {
-    fn gen_match_body(&self, body: &Expr) -> TokenStream;
+    fn gen_match_body(&self, body: &Expr) -> Result<TokenStream, Box<dyn Error>>;
 }
 
 impl GenerateMatchBody for VecPat {
-    fn gen_match_body(&self, body: &Expr) -> TokenStream {
+    fn gen_match_body(&self, body: &Expr) -> Result<TokenStream, Box<dyn Error>> {
         match self {
             VecPat::Const(const_)    => const_.gen_match_body(body),
             VecPat::Ident(ident)     => ident.gen_match_body(body),
@@ -77,17 +79,17 @@ impl VecPatIdent {
 }
 
 impl GenerateMatchBody for VecPatIdent {
-    fn gen_match_body(&self, body: &Expr) -> TokenStream {
+    fn gen_match_body(&self, body: &Expr) -> Result<TokenStream, Box<dyn Error>> {
         let binding = self.gen_binding();
-        quote! {
+        Ok(quote! {
             #binding
             #body
-        }
+        })
     }
 }
 
 impl GenerateMatchBody for VecPatSlice {
-    fn gen_match_body(&self, body: &Expr) -> TokenStream {
+    fn gen_match_body(&self, body: &Expr) -> Result<TokenStream, Box<dyn Error>> {
         #[allow(non_snake_case)]
         let SliceExt = quote!(::match_vec::internal::SliceExt);
 
@@ -104,12 +106,15 @@ impl GenerateMatchBody for VecPatSlice {
         let mut after = Vec::new();
 
         if let Some(elem) = elems.peek() {
-            catchall = Some(elem.as_catchall().unwrap_or_else(|| panic!("{:?}", quote!(#elem))));
+            catchall = Some(elem.as_catchall().unwrap());
             elems.next();
 
             before = first;
             for elem in elems {
-                assert!(!elem.is_catchall(), "pattern may only contain one catchall element");
+                if elem.is_catchall() {
+                    Err("pattern may only contain one catchall element")?
+                }
+
                 after.push(elem);
             }
         } else {
@@ -215,19 +220,19 @@ impl GenerateMatchBody for VecPatSlice {
             },
         };
 
-        quote! {
+        Ok(quote! {
             #pop_bindings
             #catchall_binding
             #body
-        }
+        })
     }
 }
 
 macro_rules! gen_match_body_default {
     ($T:ty) => {
         impl GenerateMatchBody for $T {
-            fn gen_match_body(&self, body: &Expr) -> TokenStream {
-                quote!(#body)
+            fn gen_match_body(&self, body: &Expr) -> Result<TokenStream, Box<dyn Error>> {
+                Ok(quote!(#body))
             }
         }
     };
