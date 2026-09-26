@@ -16,7 +16,9 @@ impl TryFrom<ExprMatch> for MatchArgs {
         } = value;
         Ok(MatchArgs {
             attrs, expr, brace_token,
-            arms: arms.into_iter().map(VecArm::try_from).try_collect()?
+            arms: arms.into_iter()
+                .map(VecArm::try_from)
+                .collect::<Result<_, _>>()?
         })
     }
 }
@@ -122,7 +124,9 @@ impl TryFrom<PatSlice> for VecPatSlice {
         let PatSlice { attrs, bracket_token, elems } = value;
         Ok(VecPatSlice {
             attrs, bracket_token,
-            elems: elems.into_iter().map(VecPat::try_from).try_collect()?
+            elems: elems.into_iter()
+                .map(VecPat::try_from)
+                .collect::<Result<_, _>>()?
         })
     }
 }
