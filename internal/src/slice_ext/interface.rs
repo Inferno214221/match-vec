@@ -1,9 +1,5 @@
 use std::mem::{self, MaybeUninit};
 
-pub const fn uninit_array<T, const N: usize>() -> [MaybeUninit<T>; N] {
-    [const { MaybeUninit::uninit() }; N]
-}
-
 pub const fn take_uninit<T>(dest: &mut MaybeUninit<T>) -> MaybeUninit<T> {
     mem::replace(dest, MaybeUninit::uninit())
 }

@@ -1,6 +1,6 @@
-use std::mem::{MaybeUninit};
+use crate::util::UninitArray;
 
-use super::{SliceExt, take_uninit, uninit_array};
+use super::{SliceExt, take_uninit};
 
 impl<T: Sized> SliceExt<T> for Vec<T> {
     unsafe fn pop_front<const N: usize>(&mut self) -> [T; N] {
@@ -8,7 +8,7 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
         unsafe { self.set_len(0) };
         let spare = self.spare_capacity_mut();
 
-        let mut popped = uninit_array::<T, N>();
+        let mut popped = UninitArray::<T, N>::new();
         for i in 0..N {
             popped[i] = take_uninit(&mut spare[i]);
         }
@@ -19,7 +19,7 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
 
         unsafe {
             self.set_len(len - N);
-            MaybeUninit::array_assume_init(popped)
+            popped.assume_init()
         }
     }
 
@@ -28,12 +28,12 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
         unsafe { self.set_len(len - N) };
         let spare = self.spare_capacity_mut();
 
-        let mut popped = uninit_array::<T, N>();
+        let mut popped = UninitArray::<T, N>::new();
         for i in 0..N {
             popped[i] = take_uninit(&mut spare[i]);
         }
 
-        unsafe { MaybeUninit::array_assume_init(popped) }
+        unsafe { popped.assume_init() }
     }
 
     unsafe fn pop_both<const F: usize, const B: usize>(&mut self) -> ([T; F], [T; B]) {
@@ -42,7 +42,7 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
         unsafe { self.set_len(0) };
         let spare = self.spare_capacity_mut();
 
-        let mut popped_front = uninit_array::<T, F>();
+        let mut popped_front = UninitArray::<T, F>::new();
         for i in 0..F {
             popped_front[i] = take_uninit(&mut spare[i]);
         }
@@ -51,7 +51,7 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
             spare[i - F] = take_uninit(&mut spare[i]);
         }
 
-        let mut popped_back = uninit_array::<T, B>();
+        let mut popped_back = UninitArray::<T, B>::new();
         for i in rem_end..len {
             popped_back[i - rem_end] = take_uninit(&mut spare[i]);
         }
@@ -59,8 +59,8 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
         unsafe {
             self.set_len(rem_end - F);
             (
-                MaybeUninit::array_assume_init(popped_front),
-                MaybeUninit::array_assume_init(popped_back)
+                popped_front.assume_init(),
+                popped_back.assume_init()
             )
         }
     }
@@ -73,7 +73,7 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
         unsafe { self.set_len(0) };
         let spare = self.spare_capacity_mut();
 
-        let mut popped = uninit_array::<T, N>();
+        let mut popped = UninitArray::<T, N>::new();
         for i in 0..N {
             popped[i] = take_uninit(&mut spare[i]);
         }
@@ -83,7 +83,7 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
         }
 
         unsafe {
-            MaybeUninit::array_assume_init(popped)
+            popped.assume_init()
         }
     }
 
@@ -97,7 +97,7 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
         unsafe { self.set_len(0) };
         let spare = self.spare_capacity_mut();
 
-        let mut popped_front = uninit_array::<T, F>();
+        let mut popped_front = UninitArray::<T, F>::new();
         for i in 0..F {
             popped_front[i] = take_uninit(&mut spare[i]);
         }
@@ -106,15 +106,15 @@ impl<T: Sized> SliceExt<T> for Vec<T> {
             unsafe { item.assume_init_drop() };
         }
 
-        let mut popped_back = uninit_array::<T, B>();
+        let mut popped_back = UninitArray::<T, B>::new();
         for i in rem_end..len {
             popped_back[i - rem_end] = take_uninit(&mut spare[i]);
         }
 
         unsafe {
             (
-                MaybeUninit::array_assume_init(popped_front),
-                MaybeUninit::array_assume_init(popped_back)
+                popped_front.assume_init(),
+                popped_back.assume_init()
             )
         }
     }

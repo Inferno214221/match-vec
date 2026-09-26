@@ -1,6 +1,8 @@
 use std::mem::{self, MaybeUninit};
 
-use super::{SliceExt, take_uninit, uninit_array};
+use crate::util::UninitArray;
+
+use super::{SliceExt, take_uninit};
 
 fn boxed_slice_to_uninit<T: Sized>(this: Box<[T]>) -> Box<[MaybeUninit<T>]> {
     let ptr = Box::into_raw(this);
@@ -17,7 +19,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         let len = boxed.len();
         let slice = &mut *boxed;
 
-        let mut popped = uninit_array::<T, N>();
+        let mut popped = UninitArray::<T, N>::new();
         for i in 0..N {
             popped[i] = take_uninit(&mut slice[i]);
         }
@@ -31,7 +33,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
 
         unsafe {
             *self = new.assume_init();
-            MaybeUninit::array_assume_init(popped)
+            popped.assume_init()
         }
     }
 
@@ -47,7 +49,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
             new[i] = take_uninit(&mut slice[i]);
         }
 
-        let mut popped = uninit_array::<T, N>();
+        let mut popped = UninitArray::<T, N>::new();
         for i in rem_end..len {
             popped[i - rem_end] = take_uninit(&mut slice[i]);
         }
@@ -56,7 +58,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
 
         unsafe {
             *self = new.assume_init();
-            MaybeUninit::array_assume_init(popped)
+            popped.assume_init()
         }
     }
 
@@ -67,7 +69,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         let rem_end = len - B;
         let slice = &mut *boxed;
 
-        let mut popped_front = uninit_array::<T, F>();
+        let mut popped_front = UninitArray::<T, F>::new();
         for i in 0..F {
             popped_front[i] = take_uninit(&mut slice[i]);
         }
@@ -77,7 +79,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
             new[i - F] = take_uninit(&mut slice[i]);
         }
 
-        let mut popped_back = uninit_array::<T, B>();
+        let mut popped_back = UninitArray::<T, B>::new();
         for i in rem_end..len {
             popped_back[i - rem_end] = take_uninit(&mut slice[i]);
         }
@@ -87,8 +89,8 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         unsafe {
             *self = new.assume_init();
             (
-                MaybeUninit::array_assume_init(popped_front),
-                MaybeUninit::array_assume_init(popped_back)
+                popped_front.assume_init(),
+                popped_back.assume_init()
             )
         }
     }
@@ -108,7 +110,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
 
         let slice = &mut *boxed;
 
-        let mut popped = uninit_array::<T, N>();
+        let mut popped = UninitArray::<T, N>::new();
         for i in 0..N {
             popped[i] = take_uninit(&mut slice[i]);
         }
@@ -120,7 +122,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         drop(boxed);
 
         unsafe {
-            MaybeUninit::array_assume_init(popped)
+            popped.assume_init()
         }
     }
 
@@ -135,7 +137,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
             unsafe { item.assume_init_drop() };
         }
 
-        let mut popped_back = uninit_array::<T, N>();
+        let mut popped_back = UninitArray::<T, N>::new();
         for i in rem_end..len {
             popped_back[i - rem_end] = take_uninit(&mut slice[i]);
         }
@@ -143,7 +145,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         drop(boxed);
 
         unsafe {
-            MaybeUninit::array_assume_init(popped_back)
+            popped_back.assume_init()
         }
     }
 
@@ -154,7 +156,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         let rem_end = len - B;
         let slice = &mut *boxed;
 
-        let mut popped_front = uninit_array::<T, F>();
+        let mut popped_front = UninitArray::<T, F>::new();
         for i in 0..F {
             popped_front[i] = take_uninit(&mut slice[i]);
         }
@@ -163,7 +165,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
             unsafe { item.assume_init_drop() };
         }
 
-        let mut popped_back = uninit_array::<T, B>();
+        let mut popped_back = UninitArray::<T, B>::new();
         for i in rem_end..len {
             popped_back[i - rem_end] = take_uninit(&mut slice[i]);
         }
@@ -172,8 +174,8 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
 
         unsafe {
             (
-                MaybeUninit::array_assume_init(popped_front),
-                MaybeUninit::array_assume_init(popped_back)
+                popped_front.assume_init(),
+                popped_back.assume_init()
             )
         }
     }
