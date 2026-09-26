@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::ExprMatch;
 
-use crate::MatchArgs;
+use super::MatchArgs;
 
 pub fn make_match(args: ExprMatch) -> TokenStream {
     let args = MatchArgs::try_from(args)

@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Expr, PatConst, PatLit, PatPath, PatRange, PatReference, PatRest, PatStruct, PatTuple, PatTupleStruct, PatWild};
 
-use crate::{VecPat, VecPatIdent, VecPatSlice};
+use super::{VecPat, VecPatIdent, VecPatSlice};
 
 pub enum Catchall<'a> {
     Rest(&'a PatRest),

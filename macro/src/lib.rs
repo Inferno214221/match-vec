@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use match_vec_internal::make_match;
+use match_vec_internal::codegen::make_match;
 use proc_macro::TokenStream;
 use syn::{ExprMatch, parse_macro_input};
 

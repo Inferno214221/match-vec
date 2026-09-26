@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 
-use crate::{GenerateMatchBody, MatchArgs, VecArm, VecPat, VecPatIdent, VecPatSlice};
+use super::{GenerateMatchBody, MatchArgs, VecArm, VecPat, VecPatIdent, VecPatSlice};
 
 impl ToTokens for MatchArgs {
     fn to_tokens(&self, tokens: &mut TokenStream) {
