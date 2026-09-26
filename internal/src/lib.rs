@@ -1,5 +1,6 @@
 #![feature(iterator_try_collect)]
 
+#![warn(clippy::undocumented_unsafe_blocks)]
 
 pub mod args;
 pub mod entry;

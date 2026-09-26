@@ -14,6 +14,8 @@ fn boxed_slice_to_uninit<T: Sized>(this: Box<[T]>) -> Box<[MaybeUninit<T>]> {
 
 impl<T: Sized> SliceExt<T> for Box<[T]> {
     unsafe fn pop_front<const N: usize>(&mut self) -> [T; N] {
+        // We replace self with a temporary, dangling `Box` that we drop when reassigning self at the
+        // end of this function.
         let mut boxed = boxed_slice_to_uninit(mem::take(self));
 
         let len = boxed.len();
@@ -31,8 +33,13 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
 
         drop(boxed);
 
+        // SAFETY: Documented for each expression.
         unsafe {
+            // SAFETY: `new` is now initialized with `len - N` values from the original `Box`, all
+            // of which were initialized to begin with and have only been read once.
             *self = new.assume_init();
+            // SAFETY: `popped` contains the remaining `N` items, all of which are initialized and
+            // have only been read once.
             popped.assume_init()
         }
     }
@@ -56,8 +63,13 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
 
         drop(boxed);
 
+        // SAFETY: Documented for each expression.
         unsafe {
+            // SAFETY: `new` is now initialized with `len - N `values from the original `Box`, all
+            // of which were initialized to begin with and have only been read once.
             *self = new.assume_init();
+            // SAFETY: `popped` contains the remaining `N` items, all of which are initialized and
+            // have only been read once.
             popped.assume_init()
         }
     }
@@ -86,10 +98,17 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
 
         drop(boxed);
 
+        // SAFETY: Documented for each expression.
         unsafe {
+            // SAFETY: `new` is now initialized with `len - F - B` values from the original `Box`,
+            // all of which were initialized to begin with and have only been read once.
             *self = new.assume_init();
             (
+                // SAFETY: The first `F` initialized values have been moved to `popped_front`, which
+                // has a length of `F`.
                 popped_front.assume_init(),
+                // SAFETY: The last `B` initialized values have been moved to `popped_back`, which
+                // has a length of `B`.
                 popped_back.assume_init()
             )
         }
@@ -116,14 +135,14 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         }
 
         for item in &mut slice[N..] {
+            // SAFETY: Items from `N` onward are initialized but unneeded, so we drop them in place.
             unsafe { item.assume_init_drop() };
         }
 
         drop(boxed);
 
-        unsafe {
-            popped.assume_init()
-        }
+        // SAFETY: The first `N` items have been moved into `popped`, and remain initialized.
+        unsafe { popped.assume_init() }
     }
 
     unsafe fn take_back<const N: usize>(mut self) -> [T; N] {
@@ -134,6 +153,7 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         let slice = &mut *boxed;
 
         for item in &mut slice[..rem_end] {
+            // SAFETY: Items up to `len - N` are initialized but unneeded, so we drop them in place.
             unsafe { item.assume_init_drop() };
         }
 
@@ -144,9 +164,9 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
 
         drop(boxed);
 
-        unsafe {
-            popped_back.assume_init()
-        }
+        // SAFETY: The remaining `N` initialized values from `len - N` onward have been read once
+        // and stored in `popped_back`.
+        unsafe { popped_back.assume_init() }
     }
 
     unsafe fn take_both<const F: usize, const B: usize>(mut self) -> ([T; F], [T; B]) {
@@ -162,6 +182,8 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
         }
 
         for item in &mut slice[F..rem_end] {
+            // SAFETY: Items from `F` to `len - B` are initialized but unneeded, so we drop them in
+            // place.
             unsafe { item.assume_init_drop() };
         }
 
@@ -172,9 +194,14 @@ impl<T: Sized> SliceExt<T> for Box<[T]> {
 
         drop(boxed);
 
+        // SAFETY: Documented for each expression.
         unsafe {
             (
+                // SAFETY: The first `F` initialized values have been moved to `popped_front`, which
+                // has a length of `F`.
                 popped_front.assume_init(),
+                // SAFETY: The last `B` initialized values have been moved to `popped_back`, which
+                // has a length of `B`.
                 popped_back.assume_init()
             )
         }
