@@ -1,1 +1,4 @@
-words = ["uninit"]
+words = [
+    "growable",
+    "uninit",
+]

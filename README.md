@@ -89,7 +89,8 @@ in the process.
 
 Obviously, the main difficulty here is that non-empty `Vec`s own a heap allocation which needs to be
 deallocated after the values are moved out. But there exist many ways to move values out of a `Vec`s
-heap: `pop`, `drain`, `remove`, etc.
+heap: `pop`, `drain`, `remove`, etc. If we know what to do with each element, we should be able to
+move or drop all of the owned values and then deallocate the `Vec`.
 
 ## Functionality
 
@@ -185,9 +186,13 @@ fn main() {
 }
 ```
 
-Usage looks exactly the same for a `Box`ed slice, with exactly the same functionality. The only
-difference is that if a rest pattern is also bound to a variable, a reallocation is required and all
-values matched by this rest pattern are moved to a new `Box`. This is true even if the pattern is preceded be `ref` or `ref mut`.
+When using the rest pattern (`..`) bound to a variable, the type of that variable matches the
+original expression, with `ref` or `mut` optionally applied. If no binding is present, all relevant
+elements are dropped in place, with no move or reallocation occurring.
+
+The same functionality is available for a `Box`ed slice, with exactly the same usage. Because
+`Box`es can't be resized, binding the rest pattern (`..`) to a variable when matching on `Box<[T]>`
+requires a new allocation.
 
 ## Tangent on Vector Matching Syntax
 
