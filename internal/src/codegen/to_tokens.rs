@@ -3,6 +3,8 @@ use std::error::Error;
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 
+use crate::codegen::VecPatGuard;
+
 use super::{GenerateMatchBody, MatchArgs, VecArm, VecPat, VecPatIdent, VecPatSlice};
 
 pub fn tokenize_error(res: Result<TokenStream, Box<dyn Error>>) -> TokenStream {
@@ -50,12 +52,13 @@ impl ToTokens for VecPat {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             VecPat::Const(const_)    => const_.to_tokens(tokens),
+            VecPat::Guard(guard)     => guard.to_tokens(tokens),
             VecPat::Ident(ident)     => ident.to_tokens(tokens),
             VecPat::Lit(lit)         => lit.to_tokens(tokens),
             VecPat::Path(path)       => path.to_tokens(tokens),
             VecPat::Range(range)     => range.to_tokens(tokens),
             VecPat::Reference(ref_)  => ref_.to_tokens(tokens),
-            VecPat::Rest(est)        => est.to_tokens(tokens),
+            VecPat::Rest(rest)       => rest.to_tokens(tokens),
             VecPat::Slice(slice)     => slice.to_tokens(tokens),
             VecPat::Struct(struct_)  => struct_.to_tokens(tokens),
             VecPat::Tuple(tup)       => tup.to_tokens(tokens),
@@ -67,15 +70,15 @@ impl ToTokens for VecPat {
 
 impl ToTokens for VecPatIdent {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let VecPatIdent { attrs, by_ref: _, mutability: _, ident: _, subpat } = self;
-        let inner = if let Some((_, boxed)) = subpat {
-            quote!(#boxed)
+        let VecPatIdent { attrs, by_ref: _, mutability: _, ident, subpat } = self;
+        let subpat = if let Some((at, boxed)) = subpat {
+            quote!(#at #boxed)
         } else {
-            quote!(_)
+            quote!()
         };
         tokens.extend(quote! {
             #(#attrs)*
-            #inner
+            #ident #subpat
         });
     }
 }
@@ -87,6 +90,16 @@ impl ToTokens for VecPatSlice {
         tokens.extend(quote! {
             #(#attrs)*
             [#(#elems),*]
+        });
+    }
+}
+
+impl ToTokens for VecPatGuard {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let VecPatGuard { attrs, pat, if_token, guard } = self;
+        tokens.extend(quote! {
+            #(#attrs)*
+            #pat #if_token #guard
         });
     }
 }

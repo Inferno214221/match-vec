@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use syn::{Arm, Attribute, Expr, ExprMatch, Ident, Pat, PatConst, PatIdent, PatLit, PatPath, PatRange, PatReference, PatRest, PatSlice, PatStruct, PatTuple, PatTupleStruct, PatWild, Token, punctuated::Punctuated, token::{Brace, Bracket}};
+use syn::{Arm, Attribute, Expr, ExprMatch, Ident, Pat, PatConst, PatGuard, PatIdent, PatLit, PatPath, PatRange, PatReference, PatRest, PatSlice, PatStruct, PatTuple, PatTupleStruct, PatWild, Token, punctuated::Punctuated, token::{Brace, Bracket}};
 
 pub struct MatchArgs {
     pub attrs: Vec<Attribute>,
@@ -49,7 +49,7 @@ impl TryFrom<Arm> for VecArm {
 
 pub enum VecPat {
     Const(PatConst),
-    // Guard(PatGuard),
+    Guard(VecPatGuard),
     Ident(VecPatIdent),
     Lit(PatLit),
     // Or(PatOr),
@@ -71,13 +71,14 @@ impl TryFrom<Pat> for VecPat {
     fn try_from(value: Pat) -> Result<Self, Self::Error> {
         Ok(match value {
             Pat::Const(const_)    => VecPat::Const(const_),
-            Pat::Ident(ident)     => VecPat::Ident(VecPatIdent::try_from(ident)?),
+            Pat::Guard(guard)     => VecPat::Guard(guard.try_into()?),
+            Pat::Ident(ident)     => VecPat::Ident(ident.try_into()?),
             Pat::Lit(lit)         => VecPat::Lit(lit),
             Pat::Path(path)       => VecPat::Path(path),
             Pat::Range(range)     => VecPat::Range(range),
             Pat::Reference(ref_)  => VecPat::Reference(ref_),
             Pat::Rest(rest)       => VecPat::Rest(rest),
-            Pat::Slice(slice)     => VecPat::Slice(VecPatSlice::try_from(slice)?),
+            Pat::Slice(slice)     => VecPat::Slice(slice.try_into()?),
             Pat::Struct(struct_)  => VecPat::Struct(struct_),
             Pat::Tuple(tup)       => VecPat::Tuple(tup),
             Pat::TupleStruct(tup) => VecPat::TupleStruct(tup),
@@ -132,6 +133,27 @@ impl TryFrom<PatSlice> for VecPatSlice {
             elems: elems.into_iter()
                 .map(VecPat::try_from)
                 .collect::<Result<_, _>>()?
+        })
+    }
+}
+
+pub struct VecPatGuard {
+    pub attrs: Vec<Attribute>,
+    pub pat: Box<VecPat>,
+    pub if_token: Token![if],
+    pub guard: Box<Expr>,
+}
+
+impl TryFrom<PatGuard> for VecPatGuard {
+    type Error = Box<dyn Error>;
+
+    fn try_from(value: PatGuard) -> Result<Self, Self::Error> {
+        let PatGuard { attrs, pat, if_token, guard } = value;
+        Ok(VecPatGuard {
+            attrs,
+            pat: Box::new(VecPat::try_from(*pat)?),
+            if_token,
+            guard,
         })
     }
 }

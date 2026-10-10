@@ -4,7 +4,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Expr, PatConst, PatLit, PatPath, PatRange, PatReference, PatRest, PatStruct, PatTuple, PatTupleStruct, PatWild};
 
-use super::{VecPat, VecPatIdent, VecPatSlice};
+use super::{VecPat, VecPatIdent, VecPatSlice, VecPatGuard};
 
 pub enum Catchall<'a> {
     Rest(&'a PatRest),
@@ -53,6 +53,7 @@ impl GenerateMatchBody for VecPat {
     fn gen_match_body(&self, body: &Expr) -> Result<TokenStream, Box<dyn Error>> {
         match self {
             VecPat::Const(const_)    => const_.gen_match_body(body),
+            VecPat::Guard(guard)     => guard.gen_match_body(body),
             VecPat::Ident(ident)     => ident.gen_match_body(body),
             VecPat::Lit(lit)         => lit.gen_match_body(body),
             VecPat::Path(path)       => path.gen_match_body(body),
@@ -225,6 +226,12 @@ impl GenerateMatchBody for VecPatSlice {
             #catchall_binding
             #body
         })
+    }
+}
+
+impl GenerateMatchBody for VecPatGuard {
+    fn gen_match_body(&self, body: &Expr) -> Result<TokenStream, Box<dyn Error>> {
+        self.pat.gen_match_body(body)
     }
 }
 
