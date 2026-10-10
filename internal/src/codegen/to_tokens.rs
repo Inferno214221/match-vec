@@ -41,6 +41,9 @@ impl ToTokens for VecArm {
         let body = tokenize_error(pat.gen_match_body(body));
         tokens.extend(quote! {
             #(#attrs)*
+            // Prevents a false positive for borrows that are later shadowed with owned versions.
+            // Unfortunately, it also leads to ignoring true positives.
+            #[allow(unused_variables)]
             #pat #fat_arrow_token {
                 #body
             } #comma
