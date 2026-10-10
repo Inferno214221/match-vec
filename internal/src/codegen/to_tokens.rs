@@ -26,10 +26,12 @@ impl ToTokens for MatchArgs {
 
         let MatchArgs { attrs, expr, brace_token: _, arms } = self;
         tokens.extend(quote! {
-            let mut __match_vec_slice = #SliceExt::assert_trait_and_move(#expr);
-            #(#attrs)*
-            match &__match_vec_slice[..] {
-                #(#arms)*
+            {
+                let mut __match_vec_slice = #SliceExt::assert_trait_and_move(#expr);
+                #(#attrs)*
+                match &__match_vec_slice[..] {
+                    #(#arms)*
+                }
             }
         });
     }
